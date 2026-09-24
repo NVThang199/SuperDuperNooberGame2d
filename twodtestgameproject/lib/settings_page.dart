@@ -42,7 +42,6 @@ class _SettingsPageState extends State<SettingsPage> {
       'Nhảy': [_s.jumpKey, (LogicalKeyboardKey k) => _s.jumpKey = k],
       'Tấn công': [_s.attackKey, (LogicalKeyboardKey k) => _s.attackKey = k],
       'Khiên': [_s.shieldKey, (LogicalKeyboardKey k) => _s.shieldKey = k],
-      'Parry': [_s.parryKey, (LogicalKeyboardKey k) => _s.parryKey = k],
     };
 
     return Container(
@@ -70,6 +69,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   value: _s.showMobileControls,
                   onChanged: (value) {
                     setState(() => _s.showMobileControls = value);
+                    widget.onChanged();
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('Điều khiển bằng chuột', style: TextStyle(color: Colors.white)),
+                  subtitle: const Text('Di chuyển theo con trỏ, click để tấn công', style: TextStyle(color: Colors.white70)),
+                  value: _s.mouseControl,
+                  onChanged: (value) {
+                    setState(() => _s.mouseControl = value);
                     widget.onChanged();
                   },
                 ),

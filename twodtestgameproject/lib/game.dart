@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import 'package:flame/events.dart';
-import 'package:flutter/material.dart';
+import 'package:flame/events.dart' hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
+import 'package:flutter/gestures.dart' show PointerMoveEvent, PointerDownEvent, PointerUpEvent;
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 
 class GameSettings {
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
@@ -12,8 +13,9 @@ class GameSettings {
   LogicalKeyboardKey jumpKey = LogicalKeyboardKey.space;
   LogicalKeyboardKey attackKey = LogicalKeyboardKey.keyZ;
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
-  LogicalKeyboardKey parryKey = LogicalKeyboardKey.keyC;
+  LogicalKeyboardKey perfectBlockKey = LogicalKeyboardKey.shiftLeft;
   bool showMobileControls = true;
+  bool mouseControl = true;
 }
 
 class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameReference<NgocRongGame>, KeyboardHandler {
@@ -83,13 +85,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     current = 'attack1';
   }
 
-  void parry() {
+  void perfectBlock() {
     if (_attacking) return;
     _attacking = true;
-    _comboStep = 0; // Reset combo to prevent logic interference
-    _comboWindow = 0.4; // Use window for animation duration
     vx = 0;
     current = 'shieldAttack';
+    Future.delayed(const Duration(milliseconds: 400), () {
+      _attacking = false;
+      _updateAnimationState();
+    });
   }
 
   void setAttackHeld(bool active) {
@@ -146,6 +150,39 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   }
 
   @override
+  void onPointerMove(PointerMoveEvent event) {
+    if (!settings.mouseControl) return;
+    final targetX = event.localPosition.dx;
+    final currentX = position.x;
+    if ((targetX - currentX).abs() > 5) {
+      setHorizontalInput(targetX < currentX ? -1 : 1);
+    } else {
+      setHorizontalInput(0);
+    }
+  }
+
+  @override
+  void onPointerDown(PointerDownEvent event) {
+    if (!settings.mouseControl) return;
+    // Mouse button bits: left=1<<0, right=1<<1
+    if ((event.buttons & (1 << 0)) != 0) {
+      attack();
+    }
+    if ((event.buttons & (1 << 1)) != 0) {
+      setShielding(true);
+    }
+  }
+
+  @override
+  void onPointerUp(PointerUpEvent event) {
+    if (!settings.mouseControl) return;
+    if ((event.buttons & (1 << 1)) == 0) {
+      setShielding(false);
+    }
+    setHorizontalInput(0);
+  }
+
+  @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
     if (event is KeyDownEvent) {
       if (event.logicalKey == settings.leftKey) setHorizontalInput(-1);
@@ -153,7 +190,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
       else if (event.logicalKey == settings.jumpKey) jump();
       else if (event.logicalKey == settings.attackKey) attack();
       else if (event.logicalKey == settings.shieldKey) setShielding(true);
-      else if (event.logicalKey == settings.parryKey) parry();
+      else if (event.logicalKey == settings.perfectBlockKey) perfectBlock();
       return true;
     } else if (event is KeyUpEvent) {
       if (event.logicalKey == settings.leftKey && vx < 0) setHorizontalInput(0);
@@ -172,7 +209,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     position.x += vx * dt;
     position.y += vy * dt;
 
-    final groundY = game.size.y - 48 - size.y / 2;
+    final groundHeight = game.size.y * 0.1;
+    final groundY = game.size.y - groundHeight - size.y / 2;
     if (position.y >= groundY) {
       position.y = groundY;
       vy = 0;
@@ -238,7 +276,12 @@ class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
 
     ground = null;
 
-    player = LocalPlayer(position: Vector2(size.x / 2, size.y - 48 - 48), settings: settings);
+    final playerSize = size.y * 0.2;
+    final groundHeight = size.y * 0.1;
+    player = LocalPlayer(
+      position: Vector2(size.x / 2, size.y - groundHeight - playerSize / 2),
+      settings: settings,
+    )..size = Vector2.all(playerSize);
     add(player);
   }
 
@@ -247,6 +290,10 @@ class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
     super.onGameResize(size);
     if (isLoaded) {
       background.size = size.clone();
+      final playerSize = size.y * 0.2;
+      final groundHeight = size.y * 0.1;
+      player.size = Vector2.all(playerSize);
+      player.position.y = size.y - groundHeight - playerSize / 2;
     }
   }
 }
