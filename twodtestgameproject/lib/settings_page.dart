@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'game.dart';
+import 'overlay_editor.dart';
 
 class SettingsPage extends StatefulWidget {
   final GameSettings settings;
@@ -53,6 +54,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
       'Nhảy': [_s.jumpKey, (LogicalKeyboardKey k) => _s.jumpKey = k],
       'Tấn công': [_s.attackKey, (LogicalKeyboardKey k) => _s.attackKey = k],
+      'Ném đá': [_s.throwKey, (LogicalKeyboardKey k) => _s.throwKey = k],
       'Khiên': [_s.shieldKey, (LogicalKeyboardKey k) => _s.shieldKey = k],
       'Chạy': [_s.runKey, (LogicalKeyboardKey k) => _s.runKey = k],
     };
@@ -92,6 +94,28 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Text(_name(entry.value[0] as LogicalKeyboardKey)),
                     ),
                   ),
+                ListTile(
+                  title: const Text(
+                    'Tùy chỉnh vị trí nút',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  trailing: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () async {
+                      final changed = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const OverlayEditorPage(),
+                        ),
+                      );
+                      if (changed == true && context.mounted)
+                        widget.onChanged();
+                    },
+                    child: const Text('MỞ'),
+                  ),
+                ),
                 SwitchListTile(
                   title: const Text(
                     'Hiện điều khiển cảm ứng',

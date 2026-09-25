@@ -9,6 +9,7 @@ import 'package:flame/events.dart'
     hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
 import 'package:flutter/gestures.dart'
     show PointerMoveEvent, PointerDownEvent, PointerUpEvent;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
@@ -19,10 +20,40 @@ class GameSettings {
   LogicalKeyboardKey rightKey = LogicalKeyboardKey.arrowRight;
   LogicalKeyboardKey jumpKey = LogicalKeyboardKey.space;
   LogicalKeyboardKey attackKey = LogicalKeyboardKey.keyZ;
+  LogicalKeyboardKey throwKey = LogicalKeyboardKey.keyC;
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
   LogicalKeyboardKey runKey = LogicalKeyboardKey.shiftLeft;
-  bool showMobileControls = true;
+  bool showMobileControls =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
   bool mouseControl = true;
+}
+
+class RockProjectile extends SpriteComponent
+    with HasGameReference<NgocRongGame> {
+  final double vx;
+  RockProjectile({
+    required Vector2 position,
+    required Sprite sprite,
+    required this.vx,
+    required Vector2 size,
+  }) : super(
+         position: position,
+         sprite: sprite,
+         size: size,
+         anchor: Anchor.center,
+         priority: 5,
+       );
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    position.x += vx * dt;
+    if (position.x < -100 || position.x > game.size.x + 100) {
+      removeFromParent();
+    }
+  }
 }
 
 class DoubleJumpDust extends SpriteAnimationComponent
@@ -30,10 +61,11 @@ class DoubleJumpDust extends SpriteAnimationComponent
   DoubleJumpDust({
     required Vector2 position,
     required SpriteAnimation animation,
+    required Vector2 size,
   }) : super(
          position: position,
          animation: animation,
-         size: Vector2.all(48),
+         size: size,
          anchor: Anchor.center,
          priority: 10,
        );
@@ -47,7 +79,8 @@ class DoubleJumpDust extends SpriteAnimationComponent
 
 class LocalPlayer extends SpriteAnimationGroupComponent<String>
     with HasGameReference<NgocRongGame>, KeyboardHandler {
-  static const double jumpImpulse = -350.0;
+  double get jumpImpulse => -size.y * 13;
+  double get gravity => size.y * 65;
   double get movementSpeed => size.y * 25 / 12;
 
   double vx = 0;
@@ -68,7 +101,13 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   bool _doubleJumpUsed = false;
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
+  SpriteAnimation? _throwAnimation;
+  Sprite? _rockSprite;
   double _runDustTimer = 0;
+  bool _throwing = false;
+  double _throwTimer = 0;
+  double _throwSpawnDelay = 0;
+  bool _throwSpawned = false;
 
   int _comboStep = 0;
   double _comboWindow = 0;
@@ -95,6 +134,19 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     final jumpSheet = await game.images.load(character.jumpPath);
     final pushSheet = await game.images.load(character.pushPath);
     final dustSheet = await game.images.load(character.doubleJumpDustPath);
+    final throwSheet = await game.images.load(character.throwPath);
+    final rockImage = await game.images.load('${character.basePath}/Rock1.png');
+    _rockSprite = Sprite(rockImage);
+    final throwAnim = SpriteAnimation.fromFrameData(
+      throwSheet,
+      SpriteAnimationData.sequenced(
+        amount: character.throwAmount,
+        stepTime: character.throwStepTime,
+        textureSize: character.textureSize,
+        loop: false,
+      ),
+    );
+    _throwAnimation = throwAnim;
 
     _dustAnimation = SpriteAnimation.fromFrameData(
       dustSheet,
@@ -140,6 +192,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           textureSize: character.textureSize,
         ),
       ),
+      'throw': _throwAnimation!,
       'walkAttack': SpriteAnimation.fromFrameData(
         walkAttackSheet,
         SpriteAnimationData.sequenced(
@@ -226,6 +279,28 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     current = _attackAnimForCombo(1);
   }
 
+  void _spawnRock() {
+    if (_rockSprite == null) return;
+    game.add(
+      RockProjectile(
+        position: position + Vector2(direction * size.x * 0.45, size.y * 0.05),
+        sprite: _rockSprite!,
+        vx: direction * movementSpeed * 2.5,
+        size: Vector2.all(size.y * 0.30),
+      ),
+    );
+  }
+
+  void throwRock() {
+    if (_throwing || _shielding || _rockSprite == null) return;
+    _throwing = true;
+    _throwTimer = character.throwAmount * character.throwStepTime;
+    _throwSpawnDelay = _throwTimer * 0.70;
+    _throwSpawned = false;
+    _targetVx = 0;
+    current = 'throw';
+  }
+
   void setAttackHeld(bool active) {
     _attackHeld = active;
     if (active) attack();
@@ -248,7 +323,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void _updateAnimationState() {
-    if (_attacking) return;
+    if (_attacking || _throwing) return;
     if (_shielding) {
       current = 'push';
     } else if (!isOnGround) {
@@ -296,7 +371,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   void _spawnDust() {
     if (_dustAnimation == null) return;
     final anim = _dustAnimation!.clone();
-    final dust = DoubleJumpDust(position: position.clone(), animation: anim);
+    final dust = DoubleJumpDust(
+      position: position.clone(),
+      animation: anim,
+      size: Vector2.all(size.y * 1.15),
+    );
     game.add(dust);
   }
 
@@ -305,9 +384,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     final anim = _walkRunPushDustAnimation!.clone();
     final behind = Vector2(
       position.x - direction * 6,
-      position.y + size.y * 0.22,
+      position.y - size.y * 0.05,
     );
-    final dust = DoubleJumpDust(position: behind, animation: anim);
+    final dust = DoubleJumpDust(
+      position: behind,
+      animation: anim,
+      size: Vector2.all(size.y * 1.15),
+    );
+    dust.scale.x = direction < 0 ? -1 : 1;
     game.add(dust);
   }
 
@@ -372,6 +456,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         jump();
       else if (event.logicalKey == settings.attackKey)
         attack();
+      else if (event.logicalKey == settings.throwKey)
+        throwRock();
       else if (event.logicalKey == settings.shieldKey)
         setShielding(true);
       else if (event.logicalKey == settings.runKey)
@@ -394,6 +480,19 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   @override
   void update(double dt) {
     super.update(dt);
+    if (_throwing) {
+      _throwSpawnDelay -= dt;
+      if (!_throwSpawned && _throwSpawnDelay <= 0) {
+        _throwSpawned = true;
+        _spawnRock();
+      }
+      _throwTimer -= dt;
+      if (_throwTimer <= 0) {
+        _throwing = false;
+        _throwSpawned = false;
+        _updateAnimationState();
+      }
+    }
     if (_coyoteTimer > 0) _coyoteTimer = (_coyoteTimer - dt).clamp(0, 0.12);
     if (_jumpBuffer > 0) {
       _jumpBuffer -= dt;
@@ -405,7 +504,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       }
     }
     vx = lerpDouble(vx, _targetVx, (12 * dt).clamp(0.0, 1.0))!;
-    vy += 900 * dt;
+    vy += gravity * dt;
     final wasOnGround = isOnGround;
     position.x += vx * dt;
     position.y += vy * dt;
@@ -531,11 +630,15 @@ class NgocRongGame extends FlameGame
     super.update(dt);
     if (_shakeTimer > 0) {
       _shakeTimer -= dt;
+      camera.viewfinder.position -= _shakeOffset;
       _shakeOffset.setValues(
         (_shakeRandom.nextDouble() - 0.5) * 4,
         (_shakeRandom.nextDouble() - 0.5) * 4,
       );
       camera.viewfinder.position += _shakeOffset;
+    } else if (_shakeOffset.length > 0) {
+      camera.viewfinder.position -= _shakeOffset;
+      _shakeOffset.setZero();
     }
   }
 
@@ -548,6 +651,8 @@ class NgocRongGame extends FlameGame
       final groundHeight = size.y * 0.1;
       player.size = Vector2.all(playerSize);
       player.position.y = size.y - groundHeight - playerSize / 2;
+      final maxX = size.x - playerSize / 2;
+      if (player.position.x > maxX) player.position.x = maxX;
     }
   }
 }

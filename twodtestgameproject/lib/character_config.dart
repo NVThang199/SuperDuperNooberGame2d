@@ -9,6 +9,7 @@ class CharacterConfig {
   final String runFile;
   final String walkRunPushDustFile;
   final String walkAttackFile;
+  final String throwFile;
   final String attack1File;
   final String attack2File;
   final String jumpFile;
@@ -19,6 +20,7 @@ class CharacterConfig {
   final int runAmount;
   final int walkRunPushDustAmount;
   final int walkAttackAmount;
+  final int throwAmount;
   final int attack1Amount;
   final int attack2Amount;
   final int jumpAmount;
@@ -30,6 +32,7 @@ class CharacterConfig {
   final double runStepTime;
   final double walkRunPushDustStepTime;
   final double walkAttackStepTime;
+  final double throwStepTime;
   final double attack1StepTime;
   final double attack2StepTime;
   final double jumpStepTime;
@@ -45,6 +48,7 @@ class CharacterConfig {
     required this.runFile,
     required this.walkRunPushDustFile,
     required this.walkAttackFile,
+    required this.throwFile,
     required this.attack1File,
     required this.attack2File,
     required this.jumpFile,
@@ -55,6 +59,7 @@ class CharacterConfig {
     required this.runAmount,
     required this.walkRunPushDustAmount,
     required this.walkAttackAmount,
+    required this.throwAmount,
     required this.attack1Amount,
     required this.attack2Amount,
     required this.jumpAmount,
@@ -66,6 +71,7 @@ class CharacterConfig {
     required this.runStepTime,
     required this.walkRunPushDustStepTime,
     required this.walkAttackStepTime,
+    required this.throwStepTime,
     required this.attack1StepTime,
     required this.attack2StepTime,
     required this.jumpStepTime,
@@ -78,6 +84,7 @@ class CharacterConfig {
   String get runPath => '$basePath/$runFile';
   String get walkRunPushDustPath => '$basePath/$walkRunPushDustFile';
   String get walkAttackPath => '$basePath/$walkAttackFile';
+  String get throwPath => '$basePath/$throwFile';
   String get attack1Path => '$basePath/$attack1File';
   String get attack2Path => '$basePath/$attack2File';
   String get jumpPath => '$basePath/$jumpFile';
@@ -96,6 +103,7 @@ final dudeConfig = CharacterConfig(
   runFile: 'Dude_Monster_Run_6.png',
   walkRunPushDustFile: 'Walk_Run_Push_Dust_6.png',
   walkAttackFile: 'Dude_Monster_Walk+Attack_6.png',
+  throwFile: 'Dude_Monster_Throw_4.png',
   attack1File: 'Dude_Monster_Attack1_4.png',
   attack2File: 'Dude_Monster_Attack2_6.png',
   jumpFile: 'Dude_Monster_Jump_8.png',
@@ -106,6 +114,7 @@ final dudeConfig = CharacterConfig(
   runAmount: 6,
   walkRunPushDustAmount: 6,
   walkAttackAmount: 6,
+  throwAmount: 4,
   attack1Amount: 4,
   attack2Amount: 6,
   jumpAmount: 8,
@@ -117,6 +126,7 @@ final dudeConfig = CharacterConfig(
   runStepTime: 0.08,
   walkRunPushDustStepTime: 0.1,
   walkAttackStepTime: 0.1,
+  throwStepTime: 0.1,
   attack1StepTime: 0.12,
   attack2StepTime: 0.1,
   jumpStepTime: 0.1,
@@ -133,6 +143,7 @@ final owletConfig = CharacterConfig(
   runFile: 'Owlet_Monster_Run_6.png',
   walkRunPushDustFile: 'Walk_Run_Push_Dust_6.png',
   walkAttackFile: 'Owlet_Monster_Walk+Attack_6.png',
+  throwFile: 'Owlet_Monster_Throw_4.png',
   attack1File: 'Owlet_Monster_Attack1_4.png',
   attack2File: 'Owlet_Monster_Attack2_6.png',
   jumpFile: 'Owlet_Monster_Jump_8.png',
@@ -143,6 +154,7 @@ final owletConfig = CharacterConfig(
   runAmount: 6,
   walkRunPushDustAmount: 6,
   walkAttackAmount: 6,
+  throwAmount: 4,
   attack1Amount: 4,
   attack2Amount: 6,
   jumpAmount: 8,
@@ -154,6 +166,7 @@ final owletConfig = CharacterConfig(
   runStepTime: 0.08,
   walkRunPushDustStepTime: 0.1,
   walkAttackStepTime: 0.1,
+  throwStepTime: 0.1,
   attack1StepTime: 0.12,
   attack2StepTime: 0.1,
   jumpStepTime: 0.1,
@@ -170,6 +183,7 @@ final pinkConfig = CharacterConfig(
   runFile: 'Pink_Monster_Run_6.png',
   walkRunPushDustFile: 'Walk_Run_Push_Dust_6.png',
   walkAttackFile: 'Pink_Monster_Walk+Attack_6.png',
+  throwFile: 'Pink_Monster_Throw_4.png',
   attack1File: 'Pink_Monster_Attack1_4.png',
   attack2File: 'Pink_Monster_Attack2_6.png',
   jumpFile: 'Pink_Monster_Jump_8.png',
@@ -180,6 +194,7 @@ final pinkConfig = CharacterConfig(
   runAmount: 6,
   walkRunPushDustAmount: 6,
   walkAttackAmount: 6,
+  throwAmount: 4,
   attack1Amount: 4,
   attack2Amount: 6,
   jumpAmount: 8,
@@ -191,6 +206,7 @@ final pinkConfig = CharacterConfig(
   runStepTime: 0.08,
   walkRunPushDustStepTime: 0.1,
   walkAttackStepTime: 0.1,
+  throwStepTime: 0.1,
   attack1StepTime: 0.12,
   attack2StepTime: 0.1,
   jumpStepTime: 0.1,

@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 
 import 'character_config.dart';
 import 'character_selection.dart';
+import 'overlay_layout.dart';
+import 'overlay_editor.dart';
 import 'game.dart';
 import 'settings_page.dart';
 
@@ -35,6 +37,18 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late final game = NgocRongGame(character: widget.character);
+  OverlayLayout _layout = OverlayLayout.defaults();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLayout();
+  }
+
+  Future<void> _loadLayout() async {
+    final l = await loadOverlayLayout();
+    if (mounted) setState(() => _layout = l);
+  }
 
   void _move(double direction) {
     game.player.setHorizontalInput(direction);
@@ -42,6 +56,7 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return Scaffold(
       body: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
@@ -68,7 +83,10 @@ class _GameScreenState extends State<GameScreen> {
                           backgroundColor: Colors.black.withValues(alpha: 0.6),
                           child: SettingsPage(
                             settings: game.settings,
-                            onChanged: () => setState(() {}),
+                            onChanged: () async {
+                              await _loadLayout();
+                              if (context.mounted) setState(() {});
+                            },
                           ),
                         ),
                       ),
@@ -77,91 +95,110 @@ class _GameScreenState extends State<GameScreen> {
                 ],
               ),
             ),
-            if (game.settings.showMobileControls)
-              Positioned(
-                left: 24,
-                bottom: 28,
-                child: _MoveControls(onMove: _move),
-              ),
-            if (game.settings.showMobileControls)
-              Positioned(
-                right: 24,
-                bottom: 28,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        _RoundControl(
-                          icon: Icons.shield,
-                          label: 'KHIÊN',
-                          color: Colors.grey,
-                          onPressed: () => game.player.setShielding(true),
-                          onReleased: () => game.player.setShielding(false),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _RoundControl(
-                          icon: Icons.directions_run,
-                          label: 'CHẠY',
-                          color: Colors.green,
-                          onPressed: () => game.player.setRunning(true),
-                          onReleased: () => game.player.setRunning(false),
-                        ),
-                        const SizedBox(width: 12),
-                        _RoundControl(
-                          icon: Icons.local_fire_department,
-                          label: 'TẤN CÔNG',
-                          color: Colors.red,
-                          onPressed: () => game.player.setAttackHeld(true),
-                          onReleased: () => game.player.setAttackHeld(false),
-                        ),
-                        const SizedBox(width: 12),
-                        _RoundControl(
-                          icon: Icons.keyboard_arrow_up,
-                          label: 'NHẢY',
-                          color: Colors.orange,
-                          onPressed: () => game.player.jump(),
-                        ),
-                      ],
-                    ),
-                  ],
+            if (game.settings.showMobileControls) ...[
+              _btn(
+                size,
+                OverlayButtonId.moveLeft,
+                _RoundControl(
+                  icon: Icons.keyboard_arrow_left,
+                  label: 'TRÁI',
+                  onPressed: () => _move(-1),
+                  onReleased: () => _move(0),
                 ),
               ),
+              _btn(
+                size,
+                OverlayButtonId.moveRight,
+                _RoundControl(
+                  icon: Icons.keyboard_arrow_right,
+                  label: 'PHẢI',
+                  onPressed: () => _move(1),
+                  onReleased: () => _move(0),
+                ),
+              ),
+              _btn(
+                size,
+                OverlayButtonId.shield,
+                _RoundControl(
+                  icon: Icons.shield,
+                  label: 'KHIÊN',
+                  color: Colors.grey,
+                  onPressed: () => game.player.setShielding(true),
+                  onReleased: () => game.player.setShielding(false),
+                ),
+              ),
+              _btn(
+                size,
+                OverlayButtonId.run,
+                _RoundControl(
+                  icon: Icons.directions_run,
+                  label: 'CHẠY',
+                  color: Colors.green,
+                  onPressed: () => game.player.setRunning(true),
+                  onReleased: () => game.player.setRunning(false),
+                ),
+              ),
+              _btn(
+                size,
+                OverlayButtonId.throwRock,
+                _RoundControl(
+                  icon: Icons.landscape,
+                  label: 'NÉM ĐÁ',
+                  color: Colors.brown,
+                  onPressed: () => game.player.throwRock(),
+                ),
+              ),
+              _btn(
+                size,
+                OverlayButtonId.attack,
+                _RoundControl(
+                  icon: Icons.local_fire_department,
+                  label: 'TẤN CÔNG',
+                  color: Colors.red,
+                  onPressed: () => game.player.setAttackHeld(true),
+                  onReleased: () => game.player.setAttackHeld(false),
+                ),
+              ),
+              _btn(
+                size,
+                OverlayButtonId.jump,
+                _RoundControl(
+                  icon: Icons.keyboard_arrow_up,
+                  label: 'NHẢY',
+                  color: Colors.orange,
+                  onPressed: () => game.player.jump(),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
-}
 
-class _MoveControls extends StatelessWidget {
-  const _MoveControls({required this.onMove, this.uiSheet});
+  Future<void> _openCustomizer() async {
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const OverlayEditorPage()),
+    );
+    if (changed == true) await _loadLayout();
+  }
 
-  final ValueChanged<double> onMove;
-  final Image? uiSheet;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _RoundControl(
-          icon: Icons.keyboard_arrow_left,
-          label: 'TRÁI',
-          onPressed: () => onMove(-1),
-          onReleased: () => onMove(0),
-        ),
-        const SizedBox(width: 12),
-        _RoundControl(
-          icon: Icons.keyboard_arrow_right,
-          label: 'PHẢI',
-          onPressed: () => onMove(1),
-          onReleased: () => onMove(0),
-        ),
-      ],
+  Widget _btn(Size size, OverlayButtonId id, Widget child) {
+    final c = _layout.buttons[id]!;
+    return Positioned(
+      left: (c.anchor.dx * size.width - 36 * c.scale).clamp(
+        0.0,
+        size.width - 72,
+      ),
+      top: (c.anchor.dy * size.height - 36 * c.scale).clamp(
+        0.0,
+        size.height - 72,
+      ),
+      child: Opacity(
+        opacity: c.opacity,
+        child: Transform.scale(scale: c.scale, child: child),
+      ),
     );
   }
 }
