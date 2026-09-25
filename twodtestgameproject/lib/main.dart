@@ -48,7 +48,7 @@ class _GameScreenState extends State<GameScreen> {
               left: 16,
               child: Row(
                 children: [
-                  const Text('Mobile demo', style: TextStyle(color: Colors.white)),
+                  const Text('Setting', style: TextStyle(color: Colors.white)),
                   IconButton(
                     icon: const Icon(Icons.settings, color: Colors.white),
                     onPressed: () => showDialog(

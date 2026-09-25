@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
-import 'package:flame/particles.dart';
-
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
@@ -61,8 +59,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     animations = {
       'idle': SpriteAnimation.fromFrameData(idleSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.2, textureSize: Vector2(32, 32))),
       'walk': SpriteAnimation.fromFrameData(walkSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
-      'attack1': SpriteAnimation.fromFrameData(attack1Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
-      'attack2': SpriteAnimation.fromFrameData(attack2Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
+      'attack1':
+  SpriteAnimation.fromFrameData(attack1Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.12, textureSize: Vector2(32, 32), loop: false)),
+      'attack2':
+  SpriteAnimation.fromFrameData(attack2Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32), loop: false)),
       'shield': SpriteAnimation.fromFrameData(shieldSheet, SpriteAnimationData.sequenced(amount: 1, stepTime: 1, textureSize: Vector2(32, 32))),
       'shieldAttack': SpriteAnimation.fromFrameData(shieldAttackSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32), loop: true)),
     };
@@ -75,9 +75,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     
     // Allow attack advancement or start
     if (_attacking) {
-      if (_comboStep == 1 && _comboWindow > 0) {
+      if (_comboStep == 1 && _comboWindow <= 0.18) {
         _comboStep = 2;
-        _comboWindow = 0.4;
+        _comboWindow = 0.48;
         current = 'attack2';
       }
       return;
@@ -88,7 +88,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     _lastAttack = DateTime.now();
     _attacking = true;
     _comboStep = 1;
-    _comboWindow = 0.4;
+    _comboWindow = 0.48;
     _applySpeed();
     current = 'attack1';
   }
@@ -250,31 +250,24 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
 
     if (_attacking) {
       _comboWindow -= dt;
-      if (_attackHeld && !_shielding && _comboStep == 1 && _comboWindow <= 0.2) {
+      if (_attackHeld && !_shielding && _comboStep == 1 && _comboWindow <= 0.08) {
         _comboStep = 2;
-        _comboWindow = 0.4;
+        _comboWindow = 0.48;
         current = 'attack2';
       }
       
       if (_comboWindow <= 0) {
         _attacking = false;
         _comboStep = 0;
-        _applySpeed(); // Khôi phục tốc độ bình thường khi kết thúc đòn đánh
-        _updateAnimationState();
+        _applySpeed();
+        if (_attackHeld && !_shielding) {
+          attack();
+        } else {
+          _updateAnimationState();
+        }
       }
     }
   }
-}
-
-class VfxComponent extends ParticleSystemComponent {
-  VfxComponent({required super.position, required Particle particle}) : super(particle: particle, size: Vector2.all(1));
-}
-
-class SlashVfx extends VfxComponent {
-  SlashVfx({required Vector2 position}) : super(
-    position: position,
-    particle: CircleParticle(paint: Paint()..color = Colors.yellow, radius: 18, lifespan: 0.12),
-  );
 }
 
 class RemotePlayer extends PositionComponent {
@@ -294,6 +287,8 @@ class RemotePlayer extends PositionComponent {
 }
 
 class NgocRongGame extends FlameGame with HasCollisionDetection, HasKeyboardHandlerComponents {
+  static final Random _shakeRandom = Random();
+  final Vector2 _shakeOffset = Vector2.zero();
   double _shakeTimer = 0;
   late LocalPlayer player;
   late SpriteComponent background;
@@ -328,7 +323,8 @@ class NgocRongGame extends FlameGame with HasCollisionDetection, HasKeyboardHand
     super.update(dt);
     if (_shakeTimer > 0) {
       _shakeTimer -= dt;
-       camera.viewfinder.position += Vector2((Random().nextDouble() - 0.5) * 4, (Random().nextDouble() - 0.5) * 4);
+       _shakeOffset.setValues((_shakeRandom.nextDouble() - 0.5) * 4, (_shakeRandom.nextDouble() - 0.5) * 4);
+       camera.viewfinder.position += _shakeOffset;
      }
    }
 

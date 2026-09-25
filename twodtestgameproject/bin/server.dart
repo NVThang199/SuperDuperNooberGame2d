@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 // Phase 2: Server-Authoritative WebSocket Game Loop (Dart Native)
 import 'dart:async';
 import 'dart:convert';
@@ -72,7 +73,7 @@ class ServerEngine {
         zone.tick();
       }
     });
-    print('Server loop started (20Hz)');
+    if (kDebugMode) print('Server loop started (20Hz)');
   }
 }
 
@@ -85,7 +86,7 @@ void main() async {
   engine.start();
 
   final server = await HttpServer.bind(InternetAddress.anyIPv4, 8080);
-  print('WebSocket Server running on ws://localhost:8080');
+  if (kDebugMode) print('WebSocket Server running on ws://localhost:8080');
 
   await for (HttpRequest req in server) {
     if (WebSocketTransformer.isUpgradeRequest(req)) {
@@ -94,7 +95,7 @@ void main() async {
       
       final zone = engine.zones['zone_1']!;
       zone.addPlayer(userId, socket);
-      print('Client connected: $userId');
+      if (kDebugMode) print('Client connected: $userId');
 
       socket.listen(
         (data) {
@@ -105,16 +106,16 @@ void main() async {
             }
             // Combat packets skipped: add when hitboxes needed.
           } catch (e) {
-            print('Invalid packet: $e');
+            if (kDebugMode) print('Invalid packet: $e');
           }
         },
         onDone: () {
           zone.removePlayer(userId);
-          print('Client disconnected: $userId');
+          if (kDebugMode) print('Client disconnected: $userId');
         },
         onError: (e) {
           zone.removePlayer(userId);
-          print('Client error: $userId, $e');
+          if (kDebugMode) print('Client error: $userId, $e');
         },
       );
     } else {
