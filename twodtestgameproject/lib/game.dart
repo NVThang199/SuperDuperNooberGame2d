@@ -1,5 +1,10 @@
 import 'dart:async';
+import 'dart:math';
+import 'dart:ui';
 
+import 'package:flame/particles.dart';
+
+import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame/events.dart' hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
@@ -19,8 +24,8 @@ class GameSettings {
 }
 
 class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameReference<NgocRongGame>, KeyboardHandler {
-  static const double speed = 200.0;
   static const double jumpImpulse = -350.0;
+  double get movementSpeed => size.y * 25 / 12;
 
   double vx = 0;
   double vy = 0;
@@ -31,11 +36,13 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   bool _shielding = false;
   bool _attackHeld = false;
   double _lastInput = 0;
+  double _coyoteTimer = 0;
+  double _jumpBuffer = 0;
+  double _targetVx = 0;
   final GameSettings settings;
   
   int _comboStep = 0;
   double _comboWindow = 0;
-
   bool get canAttack => true; // Removed cooldown for hold-to-combo
 
   LocalPlayer({required Vector2 position, GameSettings? settings})
@@ -60,6 +67,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
       'shieldAttack': SpriteAnimation.fromFrameData(shieldAttackSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32), loop: true)),
     };
     current = 'idle';
+    add(RectangleHitbox());
   }
 
   void attack() {
@@ -81,7 +89,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     _attacking = true;
     _comboStep = 1;
     _comboWindow = 0.4;
-    _applySpeed(); // Giảm tốc độ ngay khi bắt đầu đòn đánh
+    _applySpeed();
     current = 'attack1';
   }
 
@@ -115,7 +123,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     if (_attacking) return; // Keep current attack animation
     if (_shielding) {
       current = 'shield';
-    } else if (vx != 0) {
+    } else if (_lastInput != 0) {
       current = 'walk';
     } else {
       current = 'idle';
@@ -129,18 +137,25 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
 
   void _applySpeed() {
     double multiplier = _attacking ? 0.2 : (_shielding ? 0.3 : 1.0);
-    vx = _lastInput * speed * multiplier;
+    _targetVx = _lastInput * movementSpeed * multiplier;
     if (_lastInput < -0.1) { direction = -1; flipAround(); }
     else if (_lastInput > 0.1) { direction = 1; flipAround(); }
-    if (!_attacking && !_shielding) {
-      current = (_lastInput == 0) ? 'idle' : 'walk';
-    }
+    if (!_attacking) _updateAnimationState();
+  }
+
+  void _doJump() {
+    vy = jumpImpulse;
+    isOnGround = false;
+    _coyoteTimer = 0;
+    _jumpBuffer = 0;
   }
 
   void jump() {
-    if (isOnGround) {
-      vy = jumpImpulse;
-      isOnGround = false;
+    final canJump = isOnGround || _coyoteTimer > 0;
+    if (canJump) {
+      _doJump();
+    } else {
+      _jumpBuffer = 0.12;
     }
   }
 
@@ -193,8 +208,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
       else if (event.logicalKey == settings.perfectBlockKey) perfectBlock();
       return true;
     } else if (event is KeyUpEvent) {
-      if (event.logicalKey == settings.leftKey && vx < 0) setHorizontalInput(0);
-      else if (event.logicalKey == settings.rightKey && vx > 0) setHorizontalInput(0);
+      if (event.logicalKey == settings.leftKey) setHorizontalInput(0);
+      else if (event.logicalKey == settings.rightKey) setHorizontalInput(0);
       else if (event.logicalKey == settings.shieldKey) setShielding(false);
       return true;
     }
@@ -204,8 +219,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   @override
   void update(double dt) {
     super.update(dt);
+    if (_coyoteTimer > 0) _coyoteTimer = (_coyoteTimer - dt).clamp(0, 0.12);
+    if (_jumpBuffer > 0) {
+      _jumpBuffer -= dt;
+      if (_jumpBuffer <= 0) _jumpBuffer = 0;
+      else if (isOnGround || _coyoteTimer > 0) _doJump();
+    }
+    vx = lerpDouble(vx, _targetVx, (12 * dt).clamp(0.0, 1.0))!;
     vy += 900 * dt;
-    // Cập nhật vị trí dùng vx hiện tại (đã bao gồm multiplier)
+    final wasOnGround = isOnGround;
     position.x += vx * dt;
     position.y += vy * dt;
 
@@ -215,6 +237,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
       position.y = groundY;
       vy = 0;
       isOnGround = true;
+      if (_jumpBuffer > 0) _doJump();
+    } else if (wasOnGround) {
+      isOnGround = false;
+      _coyoteTimer = 0.12;
     }
 
     final minX = size.x / 2;
@@ -224,8 +250,6 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
 
     if (_attacking) {
       _comboWindow -= dt;
-      
-      // Transition to attack2 when holding attack button (not shielding)
       if (_attackHeld && !_shielding && _comboStep == 1 && _comboWindow <= 0.2) {
         _comboStep = 2;
         _comboWindow = 0.4;
@@ -240,6 +264,17 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
       }
     }
   }
+}
+
+class VfxComponent extends ParticleSystemComponent {
+  VfxComponent({required super.position, required Particle particle}) : super(particle: particle, size: Vector2.all(1));
+}
+
+class SlashVfx extends VfxComponent {
+  SlashVfx({required Vector2 position}) : super(
+    position: position,
+    particle: CircleParticle(paint: Paint()..color = Colors.yellow, radius: 18, lifespan: 0.12),
+  );
 }
 
 class RemotePlayer extends PositionComponent {
@@ -258,7 +293,8 @@ class RemotePlayer extends PositionComponent {
   }
 }
 
-class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
+class NgocRongGame extends FlameGame with HasCollisionDetection, HasKeyboardHandlerComponents {
+  double _shakeTimer = 0;
   late LocalPlayer player;
   late SpriteComponent background;
   RectangleComponent? ground;
@@ -283,7 +319,18 @@ class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
       settings: settings,
     )..size = Vector2.all(playerSize);
     add(player);
+    camera.follow(player);
+    camera.viewfinder.zoom = 1.0;
   }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_shakeTimer > 0) {
+      _shakeTimer -= dt;
+       camera.viewfinder.position += Vector2((Random().nextDouble() - 0.5) * 4, (Random().nextDouble() - 0.5) * 4);
+     }
+   }
 
   @override
   void onGameResize(Vector2 size) {
