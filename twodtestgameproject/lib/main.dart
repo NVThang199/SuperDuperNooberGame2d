@@ -1,9 +1,12 @@
 import 'dart:async';
-
 import 'dart:ui';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'character_config.dart';
+import 'character_selection.dart';
 import 'game.dart';
 import 'settings_page.dart';
 
@@ -13,19 +16,25 @@ void main() {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]).then((_) {
-    runApp(const MaterialApp(home: GameScreen(), debugShowCheckedModeBanner: false));
+    runApp(
+      const MaterialApp(
+        home: CharacterSelection(),
+        debugShowCheckedModeBanner: false,
+      ),
+    );
   });
 }
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  const GameScreen({super.key, required this.character});
+  final CharacterConfig character;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  final game = NgocRongGame();
+  late final game = NgocRongGame(character: widget.character);
 
   void _move(double direction) {
     game.player.setHorizontalInput(direction);
@@ -57,7 +66,10 @@ class _GameScreenState extends State<GameScreen> {
                         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                         child: Dialog(
                           backgroundColor: Colors.black.withValues(alpha: 0.6),
-                          child: SettingsPage(settings: game.settings, onChanged: () => setState(() {})),
+                          child: SettingsPage(
+                            settings: game.settings,
+                            onChanged: () => setState(() {}),
+                          ),
                         ),
                       ),
                     ),
@@ -78,7 +90,7 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                     Row(
+                    Row(
                       children: [
                         _RoundControl(
                           icon: Icons.shield,
@@ -92,6 +104,14 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
+                        _RoundControl(
+                          icon: Icons.directions_run,
+                          label: 'CHẠY',
+                          color: Colors.green,
+                          onPressed: () => game.player.setRunning(true),
+                          onReleased: () => game.player.setRunning(false),
+                        ),
+                        const SizedBox(width: 12),
                         _RoundControl(
                           icon: Icons.local_fire_department,
                           label: 'TẤN CÔNG',
@@ -201,12 +221,22 @@ class _RoundControlState extends State<_RoundControl> {
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: widget.uiSheet == null ? widget.color.withValues(alpha: 0.8) : null,
+            color: widget.uiSheet == null
+                ? widget.color.withValues(alpha: 0.8)
+                : null,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white70, width: 2),
-            image: widget.uiSheet != null ? DecorationImage(image: widget.uiSheet!.image, fit: BoxFit.cover, centerSlice: widget.uiRect) : null,
+            image: widget.uiSheet != null
+                ? DecorationImage(
+                    image: widget.uiSheet!.image,
+                    fit: BoxFit.cover,
+                    centerSlice: widget.uiRect,
+                  )
+                : null,
           ),
-          child: widget.uiSheet == null ? Icon(widget.icon, color: Colors.white, size: 42) : null,
+          child: widget.uiSheet == null
+              ? Icon(widget.icon, color: Colors.white, size: 42)
+              : null,
         ),
       ),
     );
