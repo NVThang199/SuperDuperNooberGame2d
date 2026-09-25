@@ -1,11 +1,26 @@
-// Phase 3 & 4: Flame Game Loop & Local Player Component
-import 'package:flame/components.dart';
-import 'package:flame/events.dart';
-import 'package:flame/game.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'dart:async';
 
-class LocalPlayer extends PositionComponent with HasGameReference<NgocRongGame> {
+import 'package:flame/components.dart';
+import 'package:flame/game.dart';
+import 'package:flame/events.dart' hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
+import 'package:flutter/gestures.dart' show PointerMoveEvent, PointerDownEvent, PointerUpEvent;
+import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
+
+enum PlayerCharacter { knight, owlet }
+
+class GameSettings {
+  LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
+  LogicalKeyboardKey rightKey = LogicalKeyboardKey.arrowRight;
+  LogicalKeyboardKey jumpKey = LogicalKeyboardKey.space;
+  LogicalKeyboardKey attackKey = LogicalKeyboardKey.keyZ;
+  LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
+  LogicalKeyboardKey perfectBlockKey = LogicalKeyboardKey.shiftLeft;
+  bool showMobileControls = true;
+  bool mouseControl = true;
+}
+
+class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameReference<NgocRongGame>, KeyboardHandler {
   static const double speed = 200.0;
   static const double jumpImpulse = -350.0;
 
@@ -13,14 +28,115 @@ class LocalPlayer extends PositionComponent with HasGameReference<NgocRongGame> 
   double vy = 0;
   int direction = 1;
   bool isOnGround = true;
+  bool _attacking = false;
+  DateTime? _lastAttack;
+  bool _shielding = false;
+  bool _attackHeld = false;
+  double _lastInput = 0;
+  final GameSettings settings;
+  
+  int _comboStep = 0;
+  double _comboWindow = 0;
 
-  LocalPlayer({required Vector2 position})
-      : super(position: position, size: Vector2(32, 32), anchor: Anchor.center);
+  bool get canAttack => true; // Removed cooldown for hold-to-combo
+
+  LocalPlayer({required Vector2 position, GameSettings? settings})
+      : settings = settings ?? GameSettings(),
+        super(position: position, size: Vector2(96, 96), anchor: Anchor.center);
+
+  @override
+  Future<void> onLoad() async {
+    final idleSheet = await game.images.load('player/Idle.png');
+    final walkSheet = await game.images.load('player/Walk.png');
+    final attack1Sheet = await game.images.load('player/Attack_1.png');
+    final attack2Sheet = await game.images.load('player/Attack_2.png');
+    final shieldSheet = await game.images.load('player/Shield.png');
+    final shieldAttackSheet = await game.images.load('player/Shield+Attack.png');
+
+    animations = {
+      'idle': SpriteAnimation.fromFrameData(idleSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.2, textureSize: Vector2(32, 32))),
+      'walk': SpriteAnimation.fromFrameData(walkSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
+      'attack1': SpriteAnimation.fromFrameData(attack1Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
+      'attack2': SpriteAnimation.fromFrameData(attack2Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
+      'shield': SpriteAnimation.fromFrameData(shieldSheet, SpriteAnimationData.sequenced(amount: 1, stepTime: 1, textureSize: Vector2(32, 32))),
+      'shieldAttack': SpriteAnimation.fromFrameData(shieldAttackSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32), loop: true)),
+    };
+    current = 'idle';
+  }
+
+  void attack() {
+    if (_shielding) return;
+    
+    // Allow attack advancement or start
+    if (_attacking) {
+      if (_comboStep == 1 && _comboWindow > 0) {
+        _comboStep = 2;
+        _comboWindow = 0.4;
+        current = 'attack2';
+      }
+      return;
+    }
+    
+    if (_lastAttack != null && DateTime.now().difference(_lastAttack!) < const Duration(milliseconds: 200)) return;
+    
+    _lastAttack = DateTime.now();
+    _attacking = true;
+    _comboStep = 1;
+    _comboWindow = 0.4;
+    _applySpeed(); // Giảm tốc độ ngay khi bắt đầu đòn đánh
+    current = 'attack1';
+  }
+
+  void perfectBlock() {
+    if (_attacking) return;
+    _attacking = true;
+    vx = 0;
+    current = 'shieldAttack';
+    Future.delayed(const Duration(milliseconds: 400), () {
+      _attacking = false;
+      _updateAnimationState();
+    });
+  }
+
+  void setAttackHeld(bool active) {
+    _attackHeld = active;
+    if (active) attack();
+  }
+
+  void setShielding(bool active) {
+    _shielding = active;
+    _applySpeed(); // Cập nhật tốc độ ngay khi đổi state
+    if (!_attacking) {
+      _updateAnimationState();
+    }
+  }
+
+  void toggleShield() => setShielding(!_shielding);
+
+  void _updateAnimationState() {
+    if (_attacking) return; // Keep current attack animation
+    if (_shielding) {
+      current = 'shield';
+    } else if (vx != 0) {
+      current = 'walk';
+    } else {
+      current = 'idle';
+    }
+  }
 
   void setHorizontalInput(double input) {
-    vx = input * speed;
-    if (input < -0.1) direction = -1;
-    if (input > 0.1) direction = 1;
+    _lastInput = input;
+    _applySpeed();
+  }
+
+  void _applySpeed() {
+    double multiplier = _attacking ? 0.2 : (_shielding ? 0.3 : 1.0);
+    vx = _lastInput * speed * multiplier;
+    if (_lastInput < -0.1) { direction = -1; flipAround(); }
+    else if (_lastInput > 0.1) { direction = 1; flipAround(); }
+    if (!_attacking && !_shielding) {
+      current = (_lastInput == 0) ? 'idle' : 'walk';
+    }
   }
 
   void jump() {
@@ -30,23 +146,73 @@ class LocalPlayer extends PositionComponent with HasGameReference<NgocRongGame> 
     }
   }
 
+  void flipAround() {
+    if (direction == -1 && scale.x > 0) scale.x *= -1;
+    else if (direction == 1 && scale.x < 0) scale.x *= -1;
+  }
+
   @override
-  void render(Canvas canvas) {
-    final paint = Paint()..color = Colors.orangeAccent;
-    canvas.drawRect(size.toRect(), paint);
-    final eyePaint = Paint()..color = Colors.black;
-    final eyeOffset = direction == 1 ? const Offset(14, 8) : const Offset(6, 8);
-    canvas.drawRect(Rect.fromLTWH(eyeOffset.dx, eyeOffset.dy, 8, 8), eyePaint);
+  void onPointerMove(PointerMoveEvent event) {
+    if (!settings.mouseControl) return;
+    final targetX = event.localPosition.dx;
+    final currentX = position.x;
+    if ((targetX - currentX).abs() > 5) {
+      setHorizontalInput(targetX < currentX ? -1 : 1);
+    } else {
+      setHorizontalInput(0);
+    }
+  }
+
+  @override
+  void onPointerDown(PointerDownEvent event) {
+    if (!settings.mouseControl) return;
+    // Mouse button bits: left=1<<0, right=1<<1
+    if ((event.buttons & (1 << 0)) != 0) {
+      attack();
+    }
+    if ((event.buttons & (1 << 1)) != 0) {
+      setShielding(true);
+    }
+  }
+
+  @override
+  void onPointerUp(PointerUpEvent event) {
+    if (!settings.mouseControl) return;
+    if ((event.buttons & (1 << 1)) == 0) {
+      setShielding(false);
+    }
+    setHorizontalInput(0);
+  }
+
+  @override
+  bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == settings.leftKey) setHorizontalInput(-1);
+      else if (event.logicalKey == settings.rightKey) setHorizontalInput(1);
+      else if (event.logicalKey == settings.jumpKey) jump();
+      else if (event.logicalKey == settings.attackKey) attack();
+      else if (event.logicalKey == settings.shieldKey) setShielding(true);
+      else if (event.logicalKey == settings.perfectBlockKey) perfectBlock();
+      return true;
+    } else if (event is KeyUpEvent) {
+      if (event.logicalKey == settings.leftKey && vx < 0) setHorizontalInput(0);
+      else if (event.logicalKey == settings.rightKey && vx > 0) setHorizontalInput(0);
+      else if (event.logicalKey == settings.shieldKey) setShielding(false);
+      return true;
+    }
+    return false;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     vy += 900 * dt;
+    // Cập nhật vị trí dùng vx hiện tại (đã bao gồm multiplier)
     position.x += vx * dt;
     position.y += vy * dt;
 
-    final groundY = game.size.y - 40 - size.y / 2;
+    final groundHeight = game.size.y * 0.1;
+    final groundY = game.size.y - groundHeight - size.y / 2;
     if (position.y >= groundY) {
       position.y = groundY;
       vy = 0;
@@ -57,11 +223,26 @@ class LocalPlayer extends PositionComponent with HasGameReference<NgocRongGame> 
     final maxX = game.size.x - size.x / 2;
     if (position.x < minX) position.x = minX;
     if (position.x > maxX) position.x = maxX;
+
+    if (_attacking) {
+      _comboWindow -= dt;
+      
+      // Transition to attack2 when holding attack button (not shielding)
+      if (_attackHeld && !_shielding && _comboStep == 1 && _comboWindow <= 0.2) {
+        _comboStep = 2;
+        _comboWindow = 0.4;
+        current = 'attack2';
+      }
+      
+      if (_comboWindow <= 0) {
+        _attacking = false;
+        _comboStep = 0;
+        _applySpeed(); // Khôi phục tốc độ bình thường khi kết thúc đòn đánh
+        _updateAnimationState();
+      }
+    }
   }
 }
-
-// remove onMoved field and keyboard handler
-
 
 class RemotePlayer extends PositionComponent {
   RemotePlayer({required Vector2 position})
@@ -74,24 +255,35 @@ class RemotePlayer extends PositionComponent {
   }
 
   void updatePosition(double targetX, double targetY, double dt) {
-    // Basic lerp interpolation
     position.x += (targetX - position.x) * 10 * dt;
     position.y += (targetY - position.y) * 10 * dt;
   }
 }
 
-class NgocRongGame extends FlameGame {
+class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
   late LocalPlayer player;
-  late RectangleComponent ground;
+  late SpriteComponent background;
+  RectangleComponent? ground;
+  GameSettings settings = GameSettings();
 
   @override
   Future<void> onLoad() async {
-    // Mock Ground
-    ground = RectangleComponent(paint: Paint()..color = Colors.green.shade800);
-    add(ground);
+    final forest = await images.load('background/forest.png');
+    background = SpriteComponent(
+      sprite: Sprite(forest),
+      size: size.clone(),
+      priority: -1,
+    );
+    add(background);
 
-    // Add local player
-    player = LocalPlayer(position: Vector2(size.x / 2, size.y - 40 - 24));
+    ground = null;
+
+    final playerSize = size.y * 0.2;
+    final groundHeight = size.y * 0.1;
+    player = LocalPlayer(
+      position: Vector2(size.x / 2, size.y - groundHeight - playerSize / 2),
+      settings: settings,
+    )..size = Vector2.all(playerSize);
     add(player);
   }
 
@@ -99,8 +291,11 @@ class NgocRongGame extends FlameGame {
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     if (isLoaded) {
-      ground.size = Vector2(size.x, 40);
-      ground.position = Vector2(0, size.y - 40);
+      background.size = size.clone();
+      final playerSize = size.y * 0.2;
+      final groundHeight = size.y * 0.1;
+      player.size = Vector2.all(playerSize);
+      player.position.y = size.y - groundHeight - playerSize / 2;
     }
   }
 }
