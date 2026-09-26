@@ -14,6 +14,7 @@ import 'settings_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -69,11 +70,98 @@ class _GameScreenState extends State<GameScreen> {
             GameWidget(game: game),
             Positioned(
               top: 16,
+              left: 150,
+              child: FutureBuilder<void>(
+                future: game.loaded,
+                builder: (ctx, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const SizedBox.shrink();
+                  }
+                  return ValueListenableBuilder<double>(
+                    valueListenable: game.player.healthNotifier,
+                    builder: (ctx2, health, _) {
+                      final healthPct = health / game.player.maxHealth;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'HP',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                          Container(
+                            width: 120,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.white, width: 1),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 120 * healthPct,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: healthPct > 0.5
+                                        ? Colors.green
+                                        : (healthPct > 0.25
+                                              ? Colors.orange
+                                              : Colors.red),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                Center(
+                                  child: Text(
+                                    '${health.toInt()}/${game.player.maxHealth.toInt()}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: game.canOpenChest,
+              builder: (ctx, canOpen, _) => canOpen
+                  ? ValueListenableBuilder<bool>(
+                      valueListenable: game.chestOpenState,
+                      builder: (ctx2, isOpen, _) => Align(
+                        alignment: const Alignment(0, 0.35),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            backgroundColor: Colors.amber,
+                            foregroundColor: Colors.black,
+                          ),
+                          onPressed: () => game.openChest(),
+                          child: Text(
+                            isOpen ? 'Đóng rương' : 'Mở rương',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            Positioned(
+              top: 16,
               left: 16,
               child: Row(
                 children: [
-                  const Text('Setting', style: TextStyle(color: Colors.white)),
                   IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     icon: const Icon(Icons.settings, color: Colors.white),
                     onPressed: () => showDialog(
                       context: context,
@@ -92,6 +180,8 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  const Text('Setting', style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
@@ -186,15 +276,10 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _btn(Size size, OverlayButtonId id, Widget child) {
     final c = _layout.buttons[id]!;
+    final w = 72 * c.scale;
     return Positioned(
-      left: (c.anchor.dx * size.width - 36 * c.scale).clamp(
-        0.0,
-        size.width - 72,
-      ),
-      top: (c.anchor.dy * size.height - 36 * c.scale).clamp(
-        0.0,
-        size.height - 72,
-      ),
+      left: (c.anchor.dx * size.width - w / 2).clamp(0.0, size.width - w),
+      top: (c.anchor.dy * size.height - w / 2).clamp(0.0, size.height - w),
       child: Opacity(
         opacity: c.opacity,
         child: Transform.scale(scale: c.scale, child: child),

@@ -23,6 +23,7 @@ class GameSettings {
   LogicalKeyboardKey throwKey = LogicalKeyboardKey.keyC;
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
   LogicalKeyboardKey runKey = LogicalKeyboardKey.shiftLeft;
+  LogicalKeyboardKey chestKey = LogicalKeyboardKey.keyR;
   bool showMobileControls =
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -50,6 +51,14 @@ class RockProjectile extends SpriteComponent
   void update(double dt) {
     super.update(dt);
     position.x += vx * dt;
+    final slime = game.slime;
+    if (game.currentMap == 1 &&
+        !slime._dead &&
+        (position - slime.position).length < slime.size.x * 0.35) {
+      slime.takeDamage(10);
+      removeFromParent();
+      return;
+    }
     if (position.x < -100 || position.x > game.size.x + 100) {
       removeFromParent();
     }
@@ -103,6 +112,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
   SpriteAnimation? _throwAnimation;
+  double health = 100;
+  double maxHealth = 100;
+  final ValueNotifier<double> healthNotifier = ValueNotifier(100);
   Sprite? _rockSprite;
   double _runDustTimer = 0;
   bool _throwing = false;
@@ -119,7 +131,12 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     required this.character,
     GameSettings? settings,
   }) : settings = settings ?? GameSettings(),
-       super(position: position, size: Vector2(96, 96), anchor: Anchor.center);
+       super(
+         position: position,
+         size: Vector2(96, 96),
+         anchor: Anchor.center,
+         priority: 5,
+       );
 
   @override
   Future<void> onLoad() async {
@@ -245,6 +262,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           amount: character.pushAmount,
           stepTime: character.pushStepTime,
           textureSize: character.textureSize,
+          loop: false,
         ),
       ),
     };
@@ -273,6 +291,12 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
             const Duration(milliseconds: 200))
       return;
     _lastAttack = DateTime.now();
+    final slime = game.slime;
+    if (game.currentMap == 1 &&
+        !slime._dead &&
+        (position - slime.position).length < (size.x + slime.size.x) * 0.35) {
+      slime.takeDamage(10);
+    }
     _attacking = true;
     _comboStep = 1;
     _comboWindow = 0.48;
@@ -492,7 +516,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       else if (event.logicalKey == settings.runKey) {
         _keysPressed.add(event.logicalKey);
         setRunning(true);
-      }
+      } else if (event.logicalKey == settings.chestKey)
+        game.openChest();
       return true;
     } else if (event is KeyUpEvent) {
       if (event.logicalKey == settings.leftKey ||
@@ -604,6 +629,151 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       }
     }
   }
+
+  void takeDamage(double damage) {
+    if (_shielding) {
+      damage *= 0.5;
+    }
+    health = (health - damage).clamp(0, maxHealth);
+    healthNotifier.value = health;
+  }
+}
+
+class SlimeEnemy extends SpriteAnimationComponent
+    with HasGameReference<NgocRongGame> {
+  final LocalPlayer player;
+  double health = 30;
+  double maxHealth = 30;
+  final ValueNotifier<double> healthNotifier = ValueNotifier(30);
+  bool _dead = false;
+  double _respawnTimer = 0;
+  double vx = 0;
+  int directionX = 1;
+  double vy = 0;
+  double _patrolTimer = 0;
+  SpriteAnimation? _rightAnimation;
+  SpriteAnimation? _leftAnimation;
+
+  SlimeEnemy({required Vector2 position, required this.player})
+    : super(
+        position: position,
+        size: Vector2.all(112),
+        anchor: Anchor.center,
+        priority: 2,
+      );
+
+  @override
+  Future<void> onLoad() async {
+    try {
+      final walkImg = await game.images.load(
+        'enemies/slime3/Slime3_Walk_with_shadow.png',
+      );
+      _rightAnimation = SpriteAnimation.fromFrameData(
+        walkImg,
+        SpriteAnimationData.sequenced(
+          amount: 8,
+          stepTime: 0.3,
+          textureSize: Vector2.all(64),
+          texturePosition: Vector2(0, 192),
+        ),
+      );
+      _leftAnimation = SpriteAnimation.fromFrameData(
+        walkImg,
+        SpriteAnimationData.sequenced(
+          amount: 8,
+          stepTime: 0.3,
+          textureSize: Vector2.all(64),
+          texturePosition: Vector2(0, 128),
+        ),
+      );
+      animation = _rightAnimation;
+    } catch (e) {
+      if (kDebugMode) print('SlimeEnemy load error: $e');
+    }
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_dead) {
+      _respawnTimer -= dt;
+      if (_respawnTimer <= 0) {
+        _dead = false;
+        health = maxHealth;
+        healthNotifier.value = health;
+        position.setValues(
+          game.size.x * 0.5,
+          game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28,
+        );
+        opacity = 1;
+      }
+      return;
+    }
+
+    _patrolTimer -= dt;
+    if (_patrolTimer <= 0) {
+      directionX = (Random().nextBool() ? 1 : -1);
+      _patrolTimer = 2.0 + Random().nextDouble() * 3.0;
+    }
+
+    animation = directionX > 0 ? _rightAnimation : _leftAnimation;
+    vx = directionX * game.size.y * 0.06;
+
+    final groundY =
+        game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28;
+    vy += 65 * dt;
+    position.y += vy * dt;
+    if (position.y >= groundY) {
+      position.y = groundY;
+      vy = 0;
+    }
+    position.x += vx * dt;
+
+    final minX = game.size.x * 0.40;
+    final maxX = game.size.x * 0.60;
+    if (position.x < minX || position.x > maxX) {
+      position.x = position.x.clamp(minX, maxX);
+      directionX *= -1;
+      _patrolTimer = 2.0;
+    }
+  }
+
+  void takeDamage(double damage) {
+    if (_dead) return;
+    health = (health - damage).clamp(0, maxHealth);
+    healthNotifier.value = health;
+    if (health <= 0) {
+      _dead = true;
+      _respawnTimer = 5;
+      opacity = 0;
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    if (health >= maxHealth) return;
+    final barWidth = size.x * 0.45;
+    final barHeight = size.y * 0.03;
+    final barY = size.y * 0.04;
+    final barX = size.x * 0.48;
+    final bgRect = Rect.fromLTWH(
+      barX - barWidth / 2,
+      barY,
+      barWidth,
+      barHeight,
+    );
+    canvas.drawRect(bgRect, Paint()..color = const Color(0xAA000000));
+    canvas.drawRect(
+      Rect.fromLTWH(
+        barX - barWidth / 2,
+        barY,
+        barWidth * (health / maxHealth),
+        barHeight,
+      ),
+      Paint()..color = Colors.red,
+    );
+  }
 }
 
 class RemotePlayer extends PositionComponent {
@@ -629,9 +799,18 @@ class NgocRongGame extends FlameGame
   double _shakeTimer = 0;
   late LocalPlayer player;
   late SpriteComponent background;
+  late SpriteComponent background1;
+  late SpriteComponent chest;
+  late SpriteAnimationComponent fire;
+  late Sprite chestOpenSprite;
   RectangleComponent? ground;
   GameSettings settings = GameSettings();
   final CharacterConfig character;
+  final ValueNotifier<bool> canOpenChest = ValueNotifier(false);
+  final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
+  int currentMap = 0;
+  bool chestOpen = false;
+  late SlimeEnemy slime;
 
   NgocRongGame({required this.character});
 
@@ -645,6 +824,49 @@ class NgocRongGame extends FlameGame
     );
     add(background);
 
+    final forest1 = await images.load('background/forest_map1.png');
+    background1 = SpriteComponent(
+      sprite: Sprite(forest1),
+      size: size.clone(),
+      priority: -1,
+    );
+
+    final chestImg = await images.load('Chest.png');
+    final chestPos = Vector2(
+      size.x * 0.7,
+      size.y - size.y * 0.1 - size.y * 0.2 + size.y * 0.08,
+    );
+    chest = SpriteComponent(
+      sprite: Sprite(
+        chestImg,
+        srcPosition: Vector2.zero(),
+        srcSize: Vector2.all(32),
+      ),
+      size: Vector2.all(size.y * 0.15),
+      position: chestPos,
+      priority: 1,
+    );
+    chestOpenSprite = Sprite(
+      chestImg,
+      srcPosition: Vector2(32 * 3, 0),
+      srcSize: Vector2.all(32),
+    );
+
+    final fireImg = await images.load('Fire.png');
+    fire = SpriteAnimationComponent(
+      animation: SpriteAnimation.fromFrameData(
+        fireImg,
+        SpriteAnimationData.sequenced(
+          amount: 5,
+          stepTime: 0.1,
+          textureSize: Vector2.all(32),
+        ),
+      ),
+      size: Vector2.all(size.y * 0.12),
+      position: Vector2(size.x * 0.3, size.y - size.y * 0.1 - size.y * 0.06),
+      priority: 0,
+    );
+
     ground = null;
 
     final playerSize = size.y * 0.2;
@@ -657,11 +879,63 @@ class NgocRongGame extends FlameGame
     add(player);
     camera.follow(player);
     camera.viewfinder.zoom = 1.0;
+    add(chest);
+    add(fire);
+
+    slime = SlimeEnemy(position: player.position.clone(), player: player)
+      ..size = Vector2.all(player.size.y * 1.35);
+    slime.position.y = player.position.y + player.size.y * 0.45;
+  }
+
+  void openChest() {
+    if (!canOpenChest.value) return;
+    chestOpen = !chestOpen;
+    chestOpenState.value = chestOpen;
+    if (chestOpen) {
+      chest.sprite = chestOpenSprite;
+    } else {
+      chest.sprite = Sprite(
+        chest.sprite!.image,
+        srcPosition: Vector2.zero(),
+        srcSize: Vector2.all(32),
+      );
+    }
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+    final minPlayerX = player.size.x / 2;
+    final maxPlayerX = size.x - player.size.x / 2;
+    if (currentMap == 0 && player.position.x >= maxPlayerX - 1) {
+      currentMap = 1;
+      removeAll(children.whereType<DoubleJumpDust>());
+      background.removeFromParent();
+      add(background1);
+      chest.removeFromParent();
+      fire.removeFromParent();
+      add(slime);
+      canOpenChest.value = false;
+      player.position.x = size.x * 0.1;
+    } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
+      currentMap = 0;
+      removeAll(children.whereType<DoubleJumpDust>());
+      background1.removeFromParent();
+      add(background);
+      slime.removeFromParent();
+      add(chest);
+      add(fire);
+      chestOpenState.value = chestOpen;
+      player.position.x = size.x * 0.9;
+    }
+
+    if (currentMap == 0) {
+      final dist = (player.position - chest.position).length;
+      canOpenChest.value = dist < size.y * 0.12;
+    } else {
+      canOpenChest.value = false;
+    }
+
     if (_shakeTimer > 0) {
       _shakeTimer -= dt;
       camera.viewfinder.position -= _shakeOffset;
@@ -681,6 +955,9 @@ class NgocRongGame extends FlameGame
     super.onGameResize(size);
     if (isLoaded) {
       background.size = size.clone();
+      background1.size = size.clone();
+      chest.size = Vector2.all(size.y * 0.15);
+      fire.size = Vector2.all(size.y * 0.12);
       final playerSize = size.y * 0.2;
       final groundHeight = size.y * 0.1;
       player.size = Vector2.all(playerSize);

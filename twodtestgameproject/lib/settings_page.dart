@@ -57,6 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
       'Ném đá': [_s.throwKey, (LogicalKeyboardKey k) => _s.throwKey = k],
       'Khiên': [_s.shieldKey, (LogicalKeyboardKey k) => _s.shieldKey = k],
       'Chạy': [_s.runKey, (LogicalKeyboardKey k) => _s.runKey = k],
+      'Mở rương': [_s.chestKey, (LogicalKeyboardKey k) => _s.chestKey = k],
     };
 
     return Container(
