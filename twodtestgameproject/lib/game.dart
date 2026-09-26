@@ -99,6 +99,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   final GameSettings settings;
   final CharacterConfig character;
   bool _doubleJumpUsed = false;
+  final Set<LogicalKeyboardKey> _keysPressed = {};
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
   SpriteAnimation? _throwAnimation;
@@ -324,11 +325,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void _updateAnimationState() {
     if (_attacking || _throwing) return;
+    final hasMovementInput =
+        _keysPressed.contains(settings.leftKey) ||
+        _keysPressed.contains(settings.rightKey) ||
+        _lastInput.abs() > 0.01;
     if (_shielding) {
       current = 'push';
     } else if (!isOnGround) {
       current = _doubleJumpUsed ? 'doubleJump' : 'jump';
-    } else if (_lastInput != 0) {
+    } else if (hasMovementInput) {
       current = _running ? 'run' : 'walk';
     } else {
       current = 'idle';
@@ -338,6 +343,19 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   void setHorizontalInput(double input) {
     _lastInput = input;
     _applySpeed();
+  }
+
+  void _updateMovementDirection() {
+    if (_keysPressed.isEmpty) {
+      setHorizontalInput(0);
+    } else {
+      final last = _keysPressed.last;
+      if (last == settings.rightKey) {
+        setHorizontalInput(1);
+      } else if (last == settings.leftKey) {
+        setHorizontalInput(-1);
+      }
+    }
   }
 
   void _applySpeed() {
@@ -447,12 +465,23 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    _keysPressed
+      ..removeWhere(
+        (key) => key == settings.leftKey || key == settings.rightKey,
+      )
+      ..addAll(
+        keysPressed.where(
+          (key) => key == settings.leftKey || key == settings.rightKey,
+        ),
+      );
     if (event is KeyDownEvent) {
-      if (event.logicalKey == settings.leftKey)
-        setHorizontalInput(-1);
-      else if (event.logicalKey == settings.rightKey)
-        setHorizontalInput(1);
-      else if (event.logicalKey == settings.jumpKey)
+      if (event.logicalKey == settings.leftKey) {
+        _keysPressed.add(event.logicalKey);
+        _updateMovementDirection();
+      } else if (event.logicalKey == settings.rightKey) {
+        _keysPressed.add(event.logicalKey);
+        _updateMovementDirection();
+      } else if (event.logicalKey == settings.jumpKey)
         jump();
       else if (event.logicalKey == settings.attackKey)
         attack();
@@ -460,18 +489,23 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         throwRock();
       else if (event.logicalKey == settings.shieldKey)
         setShielding(true);
-      else if (event.logicalKey == settings.runKey)
+      else if (event.logicalKey == settings.runKey) {
+        _keysPressed.add(event.logicalKey);
         setRunning(true);
+      }
       return true;
     } else if (event is KeyUpEvent) {
-      if (event.logicalKey == settings.leftKey)
-        setHorizontalInput(0);
-      else if (event.logicalKey == settings.rightKey)
-        setHorizontalInput(0);
-      else if (event.logicalKey == settings.shieldKey)
+      if (event.logicalKey == settings.leftKey ||
+          event.logicalKey == settings.rightKey) {
+        _keysPressed.remove(event.logicalKey);
+        _updateMovementDirection();
+      } else if (event.logicalKey == settings.shieldKey) {
+        _keysPressed.remove(event.logicalKey);
         setShielding(false);
-      else if (event.logicalKey == settings.runKey)
+      } else if (event.logicalKey == settings.runKey) {
+        _keysPressed.remove(event.logicalKey);
         setRunning(false);
+      }
       return true;
     }
     return false;
