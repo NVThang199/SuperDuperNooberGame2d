@@ -14,6 +14,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 import 'character_config.dart';
+import 'shield_badge.dart';
+import 'stamina_config.dart';
 
 class GameSettings {
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
@@ -108,15 +110,24 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   final GameSettings settings;
   final CharacterConfig character;
   bool _doubleJumpUsed = false;
+  final Set<LogicalKeyboardKey> _keysPressed = {};
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
   SpriteAnimation? _throwAnimation;
-
-  // Health system
+  SpriteAnimation? _deathAnimation;
+  SpriteAnimation? _hurtAnimation;
   double health = 100;
   double maxHealth = 100;
   final ValueNotifier<double> healthNotifier = ValueNotifier(100);
+  double shield = 100;
+  double maxShield = 100;
+  final ValueNotifier<double> shieldNotifier = ValueNotifier(100);
+  bool _stunned = false;
+  double _stunTimer = 0;
+  bool get isStunned => _stunned;
+  bool get isShielding => _shielding;
   Sprite? _rockSprite;
+  late ShieldBadge _shieldBadge;
   double _runDustTimer = 0;
   bool _throwing = false;
   double _throwTimer = 0;
@@ -124,8 +135,27 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   bool _throwSpawned = false;
 
   int _comboStep = 0;
+  bool _comboHit1 = false;
+  bool _comboHit2 = false;
   double _comboWindow = 0;
+  bool _dead = false;
+  double _deathAnimTimer = 0;
+  double _respawnTimer = 0;
+  double _invincibilityTimer = 0;
+  bool _hurt = false;
+  double _hurtTimer = 0;
   bool get canAttack => true;
+  double stamina = StaminaConfig.maxStamina;
+  double maxStamina = StaminaConfig.maxStamina;
+  final ValueNotifier<double> staminaNotifier = ValueNotifier(
+    StaminaConfig.maxStamina,
+  );
+  double _staminaRegenDelay = 0;
+  bool _staminaExhausted = false;
+
+  bool _canUseStamina(double amount) => !_staminaExhausted && stamina >= amount;
+
+  bool get _hasRecoveredStamina => stamina >= maxStamina * 0.5;
 
   LocalPlayer({
     required Vector2 position,
@@ -154,6 +184,26 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     final pushSheet = await game.images.load(character.pushPath);
     final dustSheet = await game.images.load(character.doubleJumpDustPath);
     final throwSheet = await game.images.load(character.throwPath);
+    final deathSheet = await game.images.load(character.deathPath);
+    _deathAnimation = SpriteAnimation.fromFrameData(
+      deathSheet,
+      SpriteAnimationData.sequenced(
+        amount: character.deathAmount,
+        stepTime: character.deathStepTime,
+        textureSize: character.textureSize,
+        loop: false,
+      ),
+    );
+    final hurtSheet = await game.images.load(character.hurtPath);
+    _hurtAnimation = SpriteAnimation.fromFrameData(
+      hurtSheet,
+      SpriteAnimationData.sequenced(
+        amount: character.hurtAmount,
+        stepTime: character.hurtStepTime,
+        textureSize: character.textureSize,
+        loop: false,
+      ),
+    );
     final rockImage = await game.images.load('${character.basePath}/Rock1.png');
     _rockSprite = Sprite(rockImage);
     final throwAnim = SpriteAnimation.fromFrameData(
@@ -212,6 +262,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         ),
       ),
       'throw': _throwAnimation!,
+      'death': _deathAnimation!,
+      'hurt': _hurtAnimation!,
       'walkAttack': SpriteAnimation.fromFrameData(
         walkAttackSheet,
         SpriteAnimationData.sequenced(
@@ -263,11 +315,24 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           amount: character.pushAmount,
           stepTime: character.pushStepTime,
           textureSize: character.textureSize,
+          loop: false,
+        ),
+      ),
+      'stun': SpriteAnimation.fromFrameData(
+        deathSheet,
+        SpriteAnimationData.sequenced(
+          amount: 1,
+          stepTime: 1,
+          textureSize: character.textureSize,
+          texturePosition: Vector2(character.textureSize.x, 0),
+          loop: false,
         ),
       ),
     };
     current = 'idle';
     add(RectangleHitbox());
+    _shieldBadge = ShieldBadge(player: this);
+    game.add(_shieldBadge);
   }
 
   String _attackAnimForCombo(int step) {
@@ -276,13 +341,56 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     return 'attack1';
   }
 
+  void _triggerStun() {
+    if (_stunned) return;
+    _stunned = true;
+    _stunTimer = 1.0;
+    _shielding = false;
+    _attacking = false;
+    _throwing = false;
+    _targetVx = 0;
+    vx = 0;
+    current = 'stun';
+  }
+
+  void damageShield(double dmg) {
+    if (!_shielding || _stunned) return;
+    shield -= dmg;
+    if (shield <= 0) {
+      shield = 0;
+      shieldNotifier.value = 0;
+      _triggerStun();
+    } else {
+      shieldNotifier.value = shield;
+    }
+  }
+
+  void _dealMeleeDamage(int step) {
+    if (step == 1 && _comboHit1) return;
+    if (step == 2 && _comboHit2) return;
+    final slime = game.slime;
+    if (game.currentMap != 1 || slime._dead) return;
+    if ((position - slime.position).length >= (size.x + slime.size.x) * 0.35) {
+      return;
+    }
+    if (step == 1) {
+      _comboHit1 = true;
+    } else {
+      _comboHit2 = true;
+    }
+    slime.takeDamage(10);
+  }
+
   void attack() {
-    if (_shielding) return;
+    if (_stunned || _shielding) return;
+    if (!_canUseStamina(StaminaConfig.attackCost)) return;
     if (_attacking) {
       if (_comboStep == 1 && _comboWindow <= 0.18) {
         _comboStep = 2;
         _comboWindow = 0.48;
         current = 'attack2';
+        consumeStamina(StaminaConfig.attackCost);
+        _dealMeleeDamage(2);
       }
       return;
     }
@@ -291,12 +399,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
             const Duration(milliseconds: 200))
       return;
     _lastAttack = DateTime.now();
-    final slime = game.slime;
-    if (game.currentMap == 1 &&
-        !slime._dead &&
-        (position - slime.position).length < (size.x + slime.size.x) * 0.35) {
-      slime.takeDamage(10);
-    }
+    _comboHit1 = false;
+    _comboHit2 = false;
+    consumeStamina(StaminaConfig.attackCost);
+    _dealMeleeDamage(1);
     _attacking = true;
     _comboStep = 1;
     _comboWindow = 0.48;
@@ -317,7 +423,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void throwRock() {
-    if (_throwing || _shielding || _rockSprite == null) return;
+    if (_stunned || _throwing || _shielding || _rockSprite == null) return;
+    if (!_canUseStamina(StaminaConfig.throwRockCost)) return;
+    consumeStamina(StaminaConfig.throwRockCost);
     _throwing = true;
     _throwTimer = character.throwAmount * character.throwStepTime;
     _throwSpawnDelay = _throwTimer * 0.70;
@@ -332,6 +440,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void setShielding(bool active) {
+    if (_stunned) return;
     _shielding = active;
     _applySpeed();
     if (!_attacking) {
@@ -342,27 +451,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   void toggleShield() => setShielding(!_shielding);
 
   void setRunning(bool active) {
-    _running = active;
+    _running = active && _canUseStamina(0);
     _applySpeed();
     if (!_attacking) _updateAnimationState();
-  }
-
-  void _updateAnimationState() {
-    if (_attacking || _throwing) return;
-    if (_shielding) {
-      current = 'push';
-    } else if (!isOnGround) {
-      current = _doubleJumpUsed ? 'doubleJump' : 'jump';
-    } else if (_lastInput != 0) {
-      current = _running ? 'run' : 'walk';
-    } else {
-      current = 'idle';
-    }
-  }
-
-  void setHorizontalInput(double input) {
-    _lastInput = input;
-    _applySpeed();
   }
 
   void _applySpeed() {
@@ -377,6 +468,70 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       flipAround();
     }
     if (!_attacking) _updateAnimationState();
+  }
+
+  void consumeStamina(double amount) {
+    stamina = (stamina - amount).clamp(0.0, maxStamina);
+    staminaNotifier.value = stamina;
+    _staminaRegenDelay = StaminaConfig.regenDelay;
+    if (stamina < StaminaConfig.attackCost) {
+      _staminaExhausted = true;
+    }
+  }
+
+  void _updateStamina(double dt) {
+    if (_staminaExhausted && _hasRecoveredStamina) {
+      _staminaExhausted = false;
+    }
+    if (_staminaRegenDelay > 0) {
+      _staminaRegenDelay -= dt;
+      stamina = (stamina + StaminaConfig.activeRegenRate * dt).clamp(
+        0.0,
+        maxStamina,
+      );
+    } else {
+      stamina = (stamina + StaminaConfig.idleRegenRate * dt).clamp(
+        0.0,
+        maxStamina,
+      );
+    }
+    staminaNotifier.value = stamina;
+  }
+
+  void _updateAnimationState() {
+    if (_attacking || _throwing) return;
+    final hasMovementInput =
+        _keysPressed.contains(settings.leftKey) ||
+        _keysPressed.contains(settings.rightKey) ||
+        _lastInput.abs() > 0.01;
+    if (_shielding) {
+      current = 'push';
+    } else if (!isOnGround) {
+      current = _doubleJumpUsed ? 'doubleJump' : 'jump';
+    } else if (hasMovementInput) {
+      current = _running ? 'run' : 'walk';
+    } else {
+      current = 'idle';
+    }
+  }
+
+  void setHorizontalInput(double input) {
+    if (_stunned) input = 0;
+    _lastInput = input;
+    _applySpeed();
+  }
+
+  void _updateMovementDirection() {
+    if (_keysPressed.isEmpty) {
+      setHorizontalInput(0);
+    } else {
+      final last = _keysPressed.last;
+      if (last == settings.rightKey) {
+        setHorizontalInput(1);
+      } else if (last == settings.leftKey) {
+        setHorizontalInput(-1);
+      }
+    }
   }
 
   void _doJump({bool isDouble = false}) {
@@ -426,6 +581,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       _doubleJumpUsed = false;
       _doJump(isDouble: false);
     } else if (!_doubleJumpUsed) {
+      if (!_canUseStamina(StaminaConfig.doubleJumpCost)) return;
+      consumeStamina(StaminaConfig.doubleJumpCost);
       _doJump(isDouble: true);
     } else {
       _jumpBuffer = 0.12;
@@ -472,12 +629,23 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    _keysPressed
+      ..removeWhere(
+        (key) => key == settings.leftKey || key == settings.rightKey,
+      )
+      ..addAll(
+        keysPressed.where(
+          (key) => key == settings.leftKey || key == settings.rightKey,
+        ),
+      );
     if (event is KeyDownEvent) {
-      if (event.logicalKey == settings.leftKey)
-        setHorizontalInput(-1);
-      else if (event.logicalKey == settings.rightKey)
-        setHorizontalInput(1);
-      else if (event.logicalKey == settings.jumpKey)
+      if (event.logicalKey == settings.leftKey) {
+        _keysPressed.add(event.logicalKey);
+        _updateMovementDirection();
+      } else if (event.logicalKey == settings.rightKey) {
+        _keysPressed.add(event.logicalKey);
+        _updateMovementDirection();
+      } else if (event.logicalKey == settings.jumpKey)
         jump();
       else if (event.logicalKey == settings.attackKey)
         attack();
@@ -485,20 +653,24 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         throwRock();
       else if (event.logicalKey == settings.shieldKey)
         setShielding(true);
-      else if (event.logicalKey == settings.runKey)
+      else if (event.logicalKey == settings.runKey) {
+        _keysPressed.add(event.logicalKey);
         setRunning(true);
-      else if (event.logicalKey == settings.chestKey)
+      } else if (event.logicalKey == settings.chestKey)
         game.openChest();
       return true;
     } else if (event is KeyUpEvent) {
-      if (event.logicalKey == settings.leftKey)
-        setHorizontalInput(0);
-      else if (event.logicalKey == settings.rightKey)
-        setHorizontalInput(0);
-      else if (event.logicalKey == settings.shieldKey)
+      if (event.logicalKey == settings.leftKey ||
+          event.logicalKey == settings.rightKey) {
+        _keysPressed.remove(event.logicalKey);
+        _updateMovementDirection();
+      } else if (event.logicalKey == settings.shieldKey) {
+        _keysPressed.remove(event.logicalKey);
         setShielding(false);
-      else if (event.logicalKey == settings.runKey)
+      } else if (event.logicalKey == settings.runKey) {
+        _keysPressed.remove(event.logicalKey);
         setRunning(false);
+      }
       return true;
     }
     return false;
@@ -507,6 +679,25 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   @override
   void update(double dt) {
     super.update(dt);
+    if (_invincibilityTimer > 0) {
+      _invincibilityTimer -= dt;
+    }
+    if (_hurt) {
+      _hurtTimer -= dt;
+      if (_hurtTimer <= 0) {
+        _hurt = false;
+        _updateAnimationState();
+      }
+      return;
+    }
+    if (_dead) {
+      _deathAnimTimer -= dt;
+      _respawnTimer -= dt;
+      if (_deathAnimTimer <= 0 && _respawnTimer <= 0) {
+        _respawn();
+      }
+      return;
+    }
     if (_throwing) {
       _throwSpawnDelay -= dt;
       if (!_throwSpawned && _throwSpawnDelay <= 0) {
@@ -569,10 +760,29 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       _updateAnimationState();
     }
 
-    final minX = size.x / 2;
-    final maxX = game.size.x - size.x / 2;
-    if (position.x < minX) position.x = minX;
-    if (position.x > maxX) position.x = maxX;
+    if (_running && isOnGround && _lastInput != 0 && stamina > 0) {
+      consumeStamina(StaminaConfig.runCostPerFrame * 60 * dt);
+      if (stamina <= 0) {
+        _running = false;
+        _applySpeed();
+      }
+    }
+    _updateStamina(dt);
+
+    // Shield stun logic
+    if (_stunned) {
+      _stunTimer -= dt;
+      if (_stunTimer <= 0) {
+        _stunned = false;
+        _stunTimer = 0;
+        current = 'idle';
+      }
+    } else {
+      final minX = size.x / 2;
+      final maxX = game.size.x - size.x / 2;
+      if (position.x < minX) position.x = minX;
+      if (position.x > maxX) position.x = maxX;
+    }
 
     if (_attacking) {
       _comboWindow -= dt;
@@ -583,6 +793,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         _comboStep = 2;
         _comboWindow = 0.48;
         current = 'attack2';
+        _dealMeleeDamage(2);
       }
 
       if (_comboWindow <= 0) {
@@ -599,28 +810,75 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void takeDamage(double damage) {
-    if (_shielding) {
-      damage *= 0.5; // khiên giảm 50% sát thương
+    if (_shielding || _invincibilityTimer > 0 || _hurt || _dead) {
+      if (_shielding) damageShield(damage);
+      return;
     }
+    _invincibilityTimer = 1.0;
     health = (health - damage).clamp(0, maxHealth);
     healthNotifier.value = health;
+    if (health <= 0) {
+      _dead = true;
+      _deathAnimTimer = 0.8;
+      _respawnTimer = 5.0;
+      _attacking = false;
+      current = 'death';
+    } else {
+      _hurt = true;
+      _hurtTimer = character.hurtStepTime * character.hurtAmount;
+      _attacking = false;
+      current = 'hurt';
+    }
+  }
+
+  void _respawn() {
+    position.setValues(
+      game.size.x * 0.2,
+      game.size.y - game.size.y * 0.1 - size.y / 2,
+    );
+    health = maxHealth;
+    healthNotifier.value = health;
+    _invincibilityTimer = 2.0;
+    _dead = false;
+    _deathAnimTimer = 0;
+    opacity = 1;
+    // Switch to map 0 via game.update logic
+    game.currentMap = 0;
+    if (game.currentMap == 0) {
+      game.background1.removeFromParent();
+      game.add(game.background);
+      game.removeAll(game.children.whereType<DoubleJumpDust>());
+      game.slime.removeFromParent();
+      game.add(game.chest);
+      game.add(game.fire);
+    }
+    current = 'idle';
   }
 }
 
 class SlimeEnemy extends SpriteAnimationComponent
-    with HasGameReference<NgocRongGame> {
+    with HasGameReference<NgocRongGame>, CollisionCallbacks {
   final LocalPlayer player;
   double health = 30;
   double maxHealth = 30;
   final ValueNotifier<double> healthNotifier = ValueNotifier(30);
   bool _dead = false;
+  double _deathAnimTimer = 0;
   double _respawnTimer = 0;
+  double _invincibilityTimer = 0;
   double vx = 0;
   int directionX = 1;
   double vy = 0;
   double _patrolTimer = 0;
+  bool _attacking = false;
+  double _attackTimer = 0;
+  double _attackCooldown = 0;
+  double get attackCooldown => _attackCooldown;
+  static const double attackCooldownMax = 7.0;
   SpriteAnimation? _rightAnimation;
   SpriteAnimation? _leftAnimation;
+  SpriteAnimation? _rightAttackAnimation;
+  SpriteAnimation? _leftAttackAnimation;
 
   SlimeEnemy({required Vector2 position, required this.player})
     : super(
@@ -654,26 +912,73 @@ class SlimeEnemy extends SpriteAnimationComponent
           texturePosition: Vector2(0, 128),
         ),
       );
+
+      final attackImg = await game.images.load(
+        'enemies/slime3/Slime3_Attack_with_shadow.png',
+      );
+      // 36 frames = 4 rows × 9 cols. Row 0=front, 1=back, 2=left, 3=right.
+      _rightAttackAnimation = SpriteAnimation.fromFrameData(
+        attackImg,
+        SpriteAnimationData.sequenced(
+          amount: 9,
+          stepTime: 0.1,
+          textureSize: Vector2.all(64),
+          texturePosition: Vector2(0, 192),
+          loop: false,
+        ),
+      );
+      _leftAttackAnimation = SpriteAnimation.fromFrameData(
+        attackImg,
+        SpriteAnimationData.sequenced(
+          amount: 9,
+          stepTime: 0.1,
+          textureSize: Vector2.all(64),
+          texturePosition: Vector2(0, 128),
+          loop: false,
+        ),
+      );
+
       animation = _rightAnimation;
     } catch (e) {
       if (kDebugMode) print('SlimeEnemy load error: $e');
     }
+    add(RectangleHitbox());
   }
+
+
 
   @override
   void update(double dt) {
     super.update(dt);
+    _invincibilityTimer -= dt;
     if (_dead) {
-      _respawnTimer -= dt;
-      if (_respawnTimer <= 0) {
-        _dead = false;
-        health = maxHealth;
-        healthNotifier.value = health;
-        position.setValues(
-          game.size.x * 0.5,
-          game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28,
-        );
-        opacity = 1;
+      _deathAnimTimer -= dt;
+      if (_deathAnimTimer <= 0) {
+        _respawnTimer -= dt;
+        if (_respawnTimer <= 0) {
+          player._respawn();
+          _dead = false;
+          health = maxHealth;
+          healthNotifier.value = health;
+          position.setValues(
+            game.size.x * 0.5,
+            game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28,
+          );
+          opacity = 1;
+          _attacking = false;
+          animation = _rightAnimation;
+        }
+      }
+      return;
+    }
+
+    _attackCooldown = (_attackCooldown - dt).clamp(0.0, attackCooldownMax);
+    if (_attacking) {
+      _attackTimer -= dt;
+      if (_attackTimer <= 0) {
+        _attacking = false;
+        animation = directionX > 0 ? _rightAnimation : _leftAnimation;
+        player.takeDamage(10);
       }
       return;
     }
@@ -684,8 +989,18 @@ class SlimeEnemy extends SpriteAnimationComponent
       _patrolTimer = 2.0 + Random().nextDouble() * 3.0;
     }
 
+    // Attack if close & cooldown over
+    if (_attackCooldown <= 0 &&
+        (player.position - position).length < (size.x + player.size.x) * 0.35) {
+      _attacking = true;
+      _attackTimer = 0.9;
+      _attackCooldown = 7.0;
+      directionX = player.position.x > position.x ? 1 : -1;
+      animation = directionX > 0 ? _rightAttackAnimation : _leftAttackAnimation;
+      return;
+    }
+
     animation = directionX > 0 ? _rightAnimation : _leftAnimation;
-    // Slower patrol: 0.06x height
     vx = directionX * game.size.y * 0.06;
 
     final groundY =
@@ -698,7 +1013,6 @@ class SlimeEnemy extends SpriteAnimationComponent
     }
     position.x += vx * dt;
 
-    // Patrol center zone: between 40% and 60% width
     final minX = game.size.x * 0.40;
     final maxX = game.size.x * 0.60;
     if (position.x < minX || position.x > maxX) {
@@ -722,11 +1036,10 @@ class SlimeEnemy extends SpriteAnimationComponent
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    if (health >= maxHealth) return;
+    // Health bar
+    if (health < maxHealth) {
     final barWidth = size.x * 0.45;
     final barHeight = size.y * 0.03;
-    // The visible slime is centered in the frame; keep the bar centered on it.
-    // Compensate Slime3 transparent frame padding: visible head is lower/right.
     final barY = size.y * 0.04;
     final barX = size.x * 0.48;
     final bgRect = Rect.fromLTWH(
@@ -745,6 +1058,7 @@ class SlimeEnemy extends SpriteAnimationComponent
       ),
       Paint()..color = Colors.red,
     );
+    }
   }
 }
 
@@ -803,7 +1117,7 @@ class NgocRongGame extends FlameGame
       priority: -1,
     );
 
-    final chestImg = await images.load('Chest.png');
+    final chestImg = await images.load('environment/Chest.png');
     final chestPos = Vector2(
       size.x * 0.7,
       size.y - size.y * 0.1 - size.y * 0.2 + size.y * 0.08,
@@ -818,14 +1132,13 @@ class NgocRongGame extends FlameGame
       position: chestPos,
       priority: 1,
     );
-    // ponytail: frame dau = rương đóng, frame cuối = rương mở. Nếu sheet đổi thứ tự frame, đổi 2 số này.
     chestOpenSprite = Sprite(
       chestImg,
       srcPosition: Vector2(32 * 3, 0),
       srcSize: Vector2.all(32),
     );
 
-    final fireImg = await images.load('Fire.png');
+    final fireImg = await images.load('environment/Fire.png');
     fire = SpriteAnimationComponent(
       animation: SpriteAnimation.fromFrameData(
         fireImg,
@@ -857,7 +1170,6 @@ class NgocRongGame extends FlameGame
 
     slime = SlimeEnemy(position: player.position.clone(), player: player)
       ..size = Vector2.all(player.size.y * 1.35);
-    // Sprite sheet has transparent lower padding; lower visible feet.
     slime.position.y = player.position.y + player.size.y * 0.45;
   }
 
@@ -879,9 +1191,6 @@ class NgocRongGame extends FlameGame
   @override
   void update(double dt) {
     super.update(dt);
-
-    // Chuyển map tại giới hạn di chuyển, không dùng % màn hình.
-    // Màn hình desktop rộng có thể không bao giờ đạt 95% vì player bị clamp ở mép.
     final minPlayerX = player.size.x / 2;
     final maxPlayerX = size.x - player.size.x / 2;
     if (currentMap == 0 && player.position.x >= maxPlayerX - 1) {
@@ -906,7 +1215,6 @@ class NgocRongGame extends FlameGame
       player.position.x = size.x * 0.9;
     }
 
-    // Hiển thị nút "Mở/Đóng rương" khi player gần chest trên map 0.
     if (currentMap == 0) {
       final dist = (player.position - chest.position).length;
       canOpenChest.value = dist < size.y * 0.12;

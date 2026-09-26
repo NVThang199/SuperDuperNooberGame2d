@@ -121,6 +121,100 @@ class _GameScreenState extends State<GameScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          ValueListenableBuilder<double>(
+                            valueListenable: game.player.staminaNotifier,
+                            builder: (ctx3, stamina, _) {
+                              final pct = stamina / game.player.maxStamina;
+                              return Container(
+                                width: 120,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  border: Border.all(color: Colors.white70),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: FractionallySizedBox(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: pct.clamp(0.0, 1.0),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: pct > 0.33
+                                          ? Colors.yellow
+                                          : Colors.red,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            Positioned(
+              top: 16,
+              right: 16,
+              child: FutureBuilder<void>(
+                future: game.loaded,
+                builder: (ctx, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const SizedBox.shrink();
+                  }
+                  return StatefulBuilder(
+                    builder: (ctx2, setState) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (mounted) setState(() {});
+                        });
+                      });
+                      if (game.currentMap != 1) {
+                        return const SizedBox.shrink();
+                      }
+                      final dist = (game.player.position - game.slime.position).length;
+                      final attackRange = (game.slime.size.x + game.player.size.x) * 0.6;
+                      if (dist > attackRange) {
+                        return const SizedBox.shrink();
+                      }
+                      final cd = game.slime.attackCooldown;
+                      final pct = (cd / 7.0).clamp(0.0, 1.0).toDouble();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'Slime CD',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                          Container(
+                            width: 120,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.white, width: 1),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 120 * pct,
+                                  height: 16,
+                                  color: pct > 0.5 ? Colors.green : Colors.red,
+                                ),
+                                Center(
+                                  child: Text(
+                                    '${cd.toStringAsFixed(1)}s',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       );
                     },
@@ -264,14 +358,6 @@ class _GameScreenState extends State<GameScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _openCustomizer() async {
-    final changed = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => const OverlayEditorPage()),
-    );
-    if (changed == true) await _loadLayout();
   }
 
   Widget _btn(Size size, OverlayButtonId id, Widget child) {

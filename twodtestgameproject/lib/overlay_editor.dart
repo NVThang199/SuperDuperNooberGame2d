@@ -69,9 +69,10 @@ class _OverlayEditorPageState extends State<OverlayEditorPage> {
   Widget _buildButton(OverlayLayout layout, OverlayButtonId id, Size size) {
     final cfg = layout.buttons[id]!;
     final isSel = _selected == id;
+    final w = 72 * cfg.scale;
     return Positioned(
-      left: (cfg.anchor.dx * size.width - 36).clamp(0.0, size.width - 72),
-      top: (cfg.anchor.dy * size.height - 36).clamp(0.0, size.height - 72),
+      left: (cfg.anchor.dx * size.width - w / 2).clamp(0.0, size.width - w),
+      top: (cfg.anchor.dy * size.height - w / 2).clamp(0.0, size.height - w),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => setState(() => _selected = id),
@@ -136,19 +137,93 @@ class _OverlayEditorPageState extends State<OverlayEditorPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Kích cỡ', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              _icBtn(Icons.remove_circle, Colors.red, () => setState(() => _layout = layout.copyWithButton(id, cfg.copyWith(scale: (cfg.scale - 0.1).clamp(0.5, 2.0))))),
-              SizedBox(width: 42, child: Text('${(cfg.scale * 100).round()}%', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 11))),
-              _icBtn(Icons.add_circle, Colors.green, () => setState(() => _layout = layout.copyWithButton(id, cfg.copyWith(scale: (cfg.scale + 0.1).clamp(0.5, 2.0))))),
-            ]),
+            const Text(
+              'Kích cỡ',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _icBtn(
+                  Icons.remove_circle,
+                  Colors.red,
+                  () => setState(
+                    () => _layout = layout.copyWithButton(
+                      id,
+                      cfg.copyWith(scale: (cfg.scale - 0.1).clamp(0.5, 2.0)),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 42,
+                  child: Text(
+                    '${(cfg.scale * 100).round()}%',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                _icBtn(
+                  Icons.add_circle,
+                  Colors.green,
+                  () => setState(
+                    () => _layout = layout.copyWithButton(
+                      id,
+                      cfg.copyWith(scale: (cfg.scale + 0.1).clamp(0.5, 2.0)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 4),
-            const Text('Độ mờ', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              _icBtn(Icons.remove_circle, Colors.red, () => setState(() => _layout = layout.copyWithButton(id, cfg.copyWith(opacity: (cfg.opacity - 0.1).clamp(0.2, 1.0))))),
-              SizedBox(width: 42, child: Text('${(cfg.opacity * 100).round()}%', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 11))),
-              _icBtn(Icons.add_circle, Colors.green, () => setState(() => _layout = layout.copyWithButton(id, cfg.copyWith(opacity: (cfg.opacity + 0.1).clamp(0.2, 1.0))))),
-            ]),
+            const Text(
+              'Độ mờ',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _icBtn(
+                  Icons.remove_circle,
+                  Colors.red,
+                  () => setState(
+                    () => _layout = layout.copyWithButton(
+                      id,
+                      cfg.copyWith(
+                        opacity: (cfg.opacity - 0.1).clamp(0.2, 1.0),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 42,
+                  child: Text(
+                    '${(cfg.opacity * 100).round()}%',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                _icBtn(
+                  Icons.add_circle,
+                  Colors.green,
+                  () => setState(
+                    () => _layout = layout.copyWithButton(
+                      id,
+                      cfg.copyWith(
+                        opacity: (cfg.opacity + 0.1).clamp(0.2, 1.0),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
