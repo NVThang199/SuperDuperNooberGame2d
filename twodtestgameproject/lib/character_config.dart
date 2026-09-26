@@ -15,6 +15,7 @@ class CharacterConfig {
   final String jumpFile;
   final String pushFile;
   final String deathFile;
+  final String hurtFile;
   final String doubleJumpDustFile;
   final int idleAmount;
   final int walkAmount;
@@ -27,6 +28,7 @@ class CharacterConfig {
   final int jumpAmount;
   final int pushAmount;
   final int deathAmount;
+  final int hurtAmount;
   final int doubleJumpDustAmount;
   final Vector2 textureSize;
   final double idleStepTime;
@@ -40,6 +42,7 @@ class CharacterConfig {
   final double jumpStepTime;
   final double pushStepTime;
   final double deathStepTime;
+  final double hurtStepTime;
   final double doubleJumpDustStepTime;
 
   const CharacterConfig({
@@ -57,6 +60,7 @@ class CharacterConfig {
     required this.jumpFile,
     required this.pushFile,
     required this.deathFile,
+    required this.hurtFile,
     required this.doubleJumpDustFile,
     required this.idleAmount,
     required this.walkAmount,
@@ -69,6 +73,7 @@ class CharacterConfig {
     required this.jumpAmount,
     required this.pushAmount,
     required this.deathAmount,
+    required this.hurtAmount,
     required this.doubleJumpDustAmount,
     required this.textureSize,
     required this.idleStepTime,
@@ -82,6 +87,7 @@ class CharacterConfig {
     required this.jumpStepTime,
     required this.pushStepTime,
     required this.deathStepTime,
+    required this.hurtStepTime,
     required this.doubleJumpDustStepTime,
   });
 
@@ -96,6 +102,7 @@ class CharacterConfig {
   String get jumpPath => '$basePath/$jumpFile';
   String get pushPath => '$basePath/$pushFile';
   String get deathPath => '$basePath/$deathFile';
+  String get hurtPath => '$basePath/$hurtFile';
   String get doubleJumpDustPath => '$basePath/$doubleJumpDustFile';
 }
 
@@ -116,6 +123,7 @@ final dudeConfig = CharacterConfig(
   jumpFile: 'Dude_Monster_Jump_8.png',
   pushFile: 'Dude_Monster_Push_6.png',
   deathFile: 'Dude_Monster_Death_8.png',
+  hurtFile: 'Dude_Monster_Hurt_4.png',
   doubleJumpDustFile: 'Double_Jump_Dust_5.png',
   idleAmount: 4,
   walkAmount: 6,
@@ -128,6 +136,7 @@ final dudeConfig = CharacterConfig(
   jumpAmount: 8,
   pushAmount: 6,
   deathAmount: 8,
+  hurtAmount: 4,
   doubleJumpDustAmount: 5,
   textureSize: _ts,
   idleStepTime: 0.2,
@@ -141,6 +150,7 @@ final dudeConfig = CharacterConfig(
   jumpStepTime: 0.1,
   pushStepTime: 0.12,
   deathStepTime: 0.12,
+  hurtStepTime: 0.1,
   doubleJumpDustStepTime: 0.08,
 );
 
@@ -159,6 +169,7 @@ final owletConfig = CharacterConfig(
   jumpFile: 'Owlet_Monster_Jump_8.png',
   pushFile: 'Owlet_Monster_Push_6.png',
   deathFile: 'Owlet_Monster_Death_8.png',
+  hurtFile: 'Owlet_Monster_Hurt_4.png',
   doubleJumpDustFile: 'Double_Jump_Dust_5.png',
   idleAmount: 4,
   walkAmount: 6,
@@ -171,6 +182,7 @@ final owletConfig = CharacterConfig(
   jumpAmount: 8,
   pushAmount: 6,
   deathAmount: 8,
+  hurtAmount: 4,
   doubleJumpDustAmount: 5,
   textureSize: _ts,
   idleStepTime: 0.2,
@@ -184,6 +196,7 @@ final owletConfig = CharacterConfig(
   jumpStepTime: 0.1,
   pushStepTime: 0.12,
   deathStepTime: 0.12,
+  hurtStepTime: 0.1,
   doubleJumpDustStepTime: 0.08,
 );
 
@@ -202,6 +215,7 @@ final pinkConfig = CharacterConfig(
   jumpFile: 'Pink_Monster_Jump_8.png',
   pushFile: 'Pink_Monster_Push_6.png',
   deathFile: 'Pink_Monster_Death_8.png',
+  hurtFile: 'Pink_Monster_Hurt_4.png',
   doubleJumpDustFile: 'Double_Jump_Dust_5.png',
   idleAmount: 4,
   walkAmount: 6,
@@ -214,6 +228,7 @@ final pinkConfig = CharacterConfig(
   jumpAmount: 8,
   pushAmount: 6,
   deathAmount: 8,
+  hurtAmount: 4,
   doubleJumpDustAmount: 5,
   textureSize: _ts,
   idleStepTime: 0.2,
@@ -227,6 +242,7 @@ final pinkConfig = CharacterConfig(
   jumpStepTime: 0.1,
   pushStepTime: 0.12,
   deathStepTime: 0.12,
+  hurtStepTime: 0.1,
   doubleJumpDustStepTime: 0.08,
 );
 
