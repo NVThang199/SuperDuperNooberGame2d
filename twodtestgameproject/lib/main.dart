@@ -121,6 +121,32 @@ class _GameScreenState extends State<GameScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          ValueListenableBuilder<double>(
+                            valueListenable: game.player.staminaNotifier,
+                            builder: (ctx3, stamina, _) {
+                              final pct = stamina / game.player.maxStamina;
+                              return Container(
+                                width: 120,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  border: Border.all(color: Colors.white70),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: FractionallySizedBox(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: pct.clamp(0.0, 1.0),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: pct > 0.33 ? Colors.yellow : Colors.red,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       );
                     },

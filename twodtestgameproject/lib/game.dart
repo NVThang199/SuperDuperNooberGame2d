@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 
 import 'character_config.dart';
 import 'shield_badge.dart';
+import 'stamina_config.dart';
 
 class GameSettings {
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
@@ -134,6 +135,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   int _comboStep = 0;
   double _comboWindow = 0;
   bool get canAttack => true;
+  double stamina = StaminaConfig.maxStamina;
+  double maxStamina = StaminaConfig.maxStamina;
+  final ValueNotifier<double> staminaNotifier = ValueNotifier(StaminaConfig.maxStamina);
+  double _staminaRegenDelay = 0;
 
   LocalPlayer({
     required Vector2 position,
@@ -324,6 +329,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void attack() {
     if (_stunned || _shielding) return;
+    if (stamina < StaminaConfig.attackCost) return;
+    consumeStamina(StaminaConfig.attackCost);
     if (_attacking) {
       if (_comboStep == 1 && _comboWindow <= 0.18) {
         _comboStep = 2;
@@ -364,6 +371,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void throwRock() {
     if (_stunned || _throwing || _shielding || _rockSprite == null) return;
+    if (stamina < StaminaConfig.throwRockCost) return;
+    consumeStamina(StaminaConfig.throwRockCost);
     _throwing = true;
     _throwTimer = character.throwAmount * character.throwStepTime;
     _throwSpawnDelay = _throwTimer * 0.70;
@@ -389,10 +398,43 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   void toggleShield() => setShielding(!_shielding);
 
   void setRunning(bool active) {
-    _running = active;
+    _running = active && stamina > 0;
     _applySpeed();
     if (!_attacking) _updateAnimationState();
   }
+
+  void _applySpeed() {
+    double runMul = _running && isOnGround ? 1.7 : 1.0;
+    double multiplier = _attacking ? 0.2 : (_shielding ? 0.3 : runMul);
+    _targetVx = _lastInput * movementSpeed * multiplier;
+    if (_lastInput < -0.1) {
+      direction = -1;
+      flipAround();
+    } else if (_lastInput > 0.1) {
+      direction = 1;
+      flipAround();
+    }
+    if (!_attacking) _updateAnimationState();
+  }
+
+  void consumeStamina(double amount) {
+    stamina = (stamina - amount).clamp(0.0, maxStamina);
+    staminaNotifier.value = stamina;
+    _staminaRegenDelay = StaminaConfig.regenDelay;
+  }
+
+  void _updateStamina(double dt) {
+    if (_staminaRegenDelay > 0) {
+      _staminaRegenDelay -= dt;
+      // slow regen while delay > 0
+      stamina = (stamina + StaminaConfig.activeRegenRate * dt).clamp(0.0, maxStamina);
+    } else {
+      // idle regen
+      stamina = (stamina + StaminaConfig.idleRegenRate * dt).clamp(0.0, maxStamina);
+    }
+    staminaNotifier.value = stamina;
+  }
+
 
   void _updateAnimationState() {
     if (_attacking || _throwing) return;
@@ -428,20 +470,6 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         setHorizontalInput(-1);
       }
     }
-  }
-
-  void _applySpeed() {
-    double runMul = _running && isOnGround ? 1.7 : 1.0;
-    double multiplier = _attacking ? 0.2 : (_shielding ? 0.3 : runMul);
-    _targetVx = _lastInput * movementSpeed * multiplier;
-    if (_lastInput < -0.1) {
-      direction = -1;
-      flipAround();
-    } else if (_lastInput > 0.1) {
-      direction = 1;
-      flipAround();
-    }
-    if (!_attacking) _updateAnimationState();
   }
 
   void _doJump({bool isDouble = false}) {
@@ -491,6 +519,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       _doubleJumpUsed = false;
       _doJump(isDouble: false);
     } else if (!_doubleJumpUsed) {
+      if (stamina < StaminaConfig.doubleJumpCost) return;
+      consumeStamina(StaminaConfig.doubleJumpCost);
       _doJump(isDouble: true);
     } else {
       _jumpBuffer = 0.12;
@@ -648,6 +678,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     if (!isOnGround && !_attacking && !_shielding) {
       _updateAnimationState();
     }
+
+    if (_running && isOnGround && _lastInput != 0 && stamina > 0) {
+      consumeStamina(StaminaConfig.runCostPerFrame * 60 * dt);
+      if (stamina <= 0) {
+        _running = false;
+        _applySpeed();
+      }
+    }
+    _updateStamina(dt);
 
     // Shield stun logic
     if (_stunned) {
