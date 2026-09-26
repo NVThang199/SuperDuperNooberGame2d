@@ -596,10 +596,15 @@ class NgocRongGame extends FlameGame
   late LocalPlayer player;
   late SpriteComponent background;
   late SpriteComponent background1;
+  late SpriteComponent chest;
+  late SpriteAnimationComponent fire;
+  late Sprite chestOpenSprite;
   RectangleComponent? ground;
   GameSettings settings = GameSettings();
   final CharacterConfig character;
+  final ValueNotifier<bool> canOpenChest = ValueNotifier(false);
   int currentMap = 0;
+  bool chestOpen = false;
 
   NgocRongGame({required this.character});
 
@@ -620,6 +625,43 @@ class NgocRongGame extends FlameGame
       priority: -1,
     );
 
+    final chestImg = await images.load('Chest.png');
+    final chestPos = Vector2(
+      size.x * 0.7,
+      size.y - size.y * 0.1 - size.y * 0.2 + size.y * 0.08,
+    );
+    chest = SpriteComponent(
+      sprite: Sprite(
+        chestImg,
+        srcPosition: Vector2.zero(),
+        srcSize: Vector2.all(32),
+      ),
+      size: Vector2.all(size.y * 0.15),
+      position: chestPos,
+      priority: 1,
+    );
+    // ponytail: frame dau = rương đóng, frame cuối = rương mở. Nếu sheet đổi thứ tự frame, đổi 2 số này.
+    chestOpenSprite = Sprite(
+      chestImg,
+      srcPosition: Vector2(32 * 3, 0),
+      srcSize: Vector2.all(32),
+    );
+
+    final fireImg = await images.load('Fire.png');
+    fire = SpriteAnimationComponent(
+      animation: SpriteAnimation.fromFrameData(
+        fireImg,
+        SpriteAnimationData.sequenced(
+          amount: 5,
+          stepTime: 0.1,
+          textureSize: Vector2.all(32),
+        ),
+      ),
+      size: Vector2.all(size.y * 0.12),
+      position: Vector2(size.x * 0.3, size.y - size.y * 0.1 - size.y * 0.06),
+      priority: 0,
+    );
+
     ground = null;
 
     final playerSize = size.y * 0.2;
@@ -632,22 +674,53 @@ class NgocRongGame extends FlameGame
     add(player);
     camera.follow(player);
     camera.viewfinder.zoom = 1.0;
+    add(chest);
+    add(fire);
+  }
+
+  void openChest() {
+    if (!canOpenChest.value) return;
+    chestOpen = !chestOpen;
+    if (chestOpen) {
+      chest.sprite = chestOpenSprite;
+    } else {
+      chest.sprite = Sprite(
+        chest.sprite!.image,
+        srcPosition: Vector2.zero(),
+        srcSize: Vector2.all(32),
+      );
+    }
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
+    // Rương + lửa chỉ ở map 0 (forest). Sang map 1 thì gỡ, về map 0 thì thêm lại.
     if (currentMap == 0 && player.position.x > size.x * 0.95) {
       currentMap = 1;
       background.removeFromParent();
       add(background1);
+      chest.removeFromParent();
+      fire.removeFromParent();
+      canOpenChest.value = false;
       player.position.x = size.x * 0.1;
     } else if (currentMap == 1 && player.position.x < size.x * 0.05) {
       currentMap = 0;
       background1.removeFromParent();
       add(background);
+      // Chest giữ trạng thái mở/đóng, add lại luôn để rương ở map 0.
+      add(chest);
+      add(fire);
       player.position.x = size.x * 0.9;
+    }
+
+    // Hiển thị nút "Mở/Đóng rương" khi player gần chest trên map 0.
+    if (currentMap == 0) {
+      final dist = (player.position - chest.position).length;
+      canOpenChest.value = dist < size.y * 0.12;
+    } else {
+      canOpenChest.value = false;
     }
 
     if (_shakeTimer > 0) {
@@ -670,6 +743,8 @@ class NgocRongGame extends FlameGame
     if (isLoaded) {
       background.size = size.clone();
       background1.size = size.clone();
+      chest.size = Vector2.all(size.y * 0.15);
+      fire.size = Vector2.all(size.y * 0.12);
       final playerSize = size.y * 0.2;
       final groundHeight = size.y * 0.1;
       player.size = Vector2.all(playerSize);

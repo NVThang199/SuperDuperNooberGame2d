@@ -67,6 +67,26 @@ class _GameScreenState extends State<GameScreen> {
         child: Stack(
           children: [
             GameWidget(game: game),
+            ValueListenableBuilder<bool>(
+              valueListenable: game.canOpenChest,
+              builder: (ctx, canOpen, _) => canOpen
+                  ? Align(
+                      alignment: const Alignment(0, 0.35),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () => game.openChest(),
+                        child: const Text(
+                          'Mở rương',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             Positioned(
               top: 16,
               left: 16,
@@ -186,14 +206,15 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _btn(Size size, OverlayButtonId id, Widget child) {
     final c = _layout.buttons[id]!;
+    final w = 72 * c.scale;
     return Positioned(
-      left: (c.anchor.dx * size.width - 36 * c.scale).clamp(
+      left: (c.anchor.dx * size.width - w / 2).clamp(
         0.0,
-        size.width - 72,
+        size.width - w,
       ),
-      top: (c.anchor.dy * size.height - 36 * c.scale).clamp(
+      top: (c.anchor.dy * size.height - w / 2).clamp(
         0.0,
-        size.height - 72,
+        size.height - w,
       ),
       child: Opacity(
         opacity: c.opacity,

@@ -51,20 +51,31 @@ class OverlayLayout {
   static OverlayLayout defaults() => OverlayLayout({
     OverlayButtonId.moveLeft: const OverlayButtonConfig(
       anchor: Offset(0.06, 0.86),
+      scale: 0.8,
     ),
     OverlayButtonId.moveRight: const OverlayButtonConfig(
       anchor: Offset(0.17, 0.86),
+      scale: 0.8,
     ),
     OverlayButtonId.shield: const OverlayButtonConfig(
       anchor: Offset(0.73, 0.70),
+      scale: 0.8,
     ),
-    OverlayButtonId.run: const OverlayButtonConfig(anchor: Offset(0.84, 0.70)),
+    OverlayButtonId.run: const OverlayButtonConfig(
+      anchor: Offset(0.84, 0.70),
+      scale: 0.8,
+    ),
     OverlayButtonId.throwRock: const OverlayButtonConfig(
       anchor: Offset(0.95, 0.70),
+      scale: 0.8,
     ),
-    OverlayButtonId.jump: const OverlayButtonConfig(anchor: Offset(0.79, 0.88)),
+    OverlayButtonId.jump: const OverlayButtonConfig(
+      anchor: Offset(0.79, 0.88),
+      scale: 0.8,
+    ),
     OverlayButtonId.attack: const OverlayButtonConfig(
       anchor: Offset(0.91, 0.88),
+      scale: 0.8,
     ),
   });
   Map<String, dynamic> toJson() => {
