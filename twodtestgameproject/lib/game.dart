@@ -23,6 +23,7 @@ class GameSettings {
   LogicalKeyboardKey throwKey = LogicalKeyboardKey.keyC;
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
   LogicalKeyboardKey runKey = LogicalKeyboardKey.shiftLeft;
+  LogicalKeyboardKey chestKey = LogicalKeyboardKey.keyR;
   bool showMobileControls =
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -51,7 +52,8 @@ class RockProjectile extends SpriteComponent
     super.update(dt);
     position.x += vx * dt;
     final slime = game.slime;
-    if (game.currentMap == 1 && !slime._dead &&
+    if (game.currentMap == 1 &&
+        !slime._dead &&
         (position - slime.position).length < slime.size.x * 0.35) {
       slime.takeDamage(10);
       removeFromParent();
@@ -290,7 +292,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       return;
     _lastAttack = DateTime.now();
     final slime = game.slime;
-    if (game.currentMap == 1 && !slime._dead &&
+    if (game.currentMap == 1 &&
+        !slime._dead &&
         (position - slime.position).length < (size.x + slime.size.x) * 0.35) {
       slime.takeDamage(10);
     }
@@ -484,6 +487,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         setShielding(true);
       else if (event.logicalKey == settings.runKey)
         setRunning(true);
+      else if (event.logicalKey == settings.chestKey)
+        game.openChest();
       return true;
     } else if (event is KeyUpEvent) {
       if (event.logicalKey == settings.leftKey)
@@ -618,24 +623,36 @@ class SlimeEnemy extends SpriteAnimationComponent
   SpriteAnimation? _leftAnimation;
 
   SlimeEnemy({required Vector2 position, required this.player})
-      : super(
-          position: position,
-          size: Vector2.all(112),
-          anchor: Anchor.center,
-          priority: 2,
-        );
+    : super(
+        position: position,
+        size: Vector2.all(112),
+        anchor: Anchor.center,
+        priority: 2,
+      );
 
   @override
   Future<void> onLoad() async {
     try {
-      final walkImg = await game.images.load('enemies/slime3/Slime3_Walk_with_shadow.png');
+      final walkImg = await game.images.load(
+        'enemies/slime3/Slime3_Walk_with_shadow.png',
+      );
       _rightAnimation = SpriteAnimation.fromFrameData(
         walkImg,
-        SpriteAnimationData.sequenced(amount: 8, stepTime: 0.3, textureSize: Vector2.all(64), texturePosition: Vector2(0, 192)),
+        SpriteAnimationData.sequenced(
+          amount: 8,
+          stepTime: 0.3,
+          textureSize: Vector2.all(64),
+          texturePosition: Vector2(0, 192),
+        ),
       );
       _leftAnimation = SpriteAnimation.fromFrameData(
         walkImg,
-        SpriteAnimationData.sequenced(amount: 8, stepTime: 0.3, textureSize: Vector2.all(64), texturePosition: Vector2(0, 128)),
+        SpriteAnimationData.sequenced(
+          amount: 8,
+          stepTime: 0.3,
+          textureSize: Vector2.all(64),
+          texturePosition: Vector2(0, 128),
+        ),
       );
       animation = _rightAnimation;
     } catch (e) {
@@ -652,7 +669,10 @@ class SlimeEnemy extends SpriteAnimationComponent
         _dead = false;
         health = maxHealth;
         healthNotifier.value = health;
-        position.setValues(game.size.x * 0.5, game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28);
+        position.setValues(
+          game.size.x * 0.5,
+          game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28,
+        );
         opacity = 1;
       }
       return;
@@ -668,7 +688,8 @@ class SlimeEnemy extends SpriteAnimationComponent
     // Slower patrol: 0.06x height
     vx = directionX * game.size.y * 0.06;
 
-    final groundY = game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28;
+    final groundY =
+        game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28;
     vy += 65 * dt;
     position.y += vy * dt;
     if (position.y >= groundY) {
@@ -708,10 +729,20 @@ class SlimeEnemy extends SpriteAnimationComponent
     // Compensate Slime3 transparent frame padding: visible head is lower/right.
     final barY = size.y * 0.04;
     final barX = size.x * 0.48;
-    final bgRect = Rect.fromLTWH(barX - barWidth / 2, barY, barWidth, barHeight);
+    final bgRect = Rect.fromLTWH(
+      barX - barWidth / 2,
+      barY,
+      barWidth,
+      barHeight,
+    );
     canvas.drawRect(bgRect, Paint()..color = const Color(0xAA000000));
     canvas.drawRect(
-      Rect.fromLTWH(barX - barWidth / 2, barY, barWidth * (health / maxHealth), barHeight),
+      Rect.fromLTWH(
+        barX - barWidth / 2,
+        barY,
+        barWidth * (health / maxHealth),
+        barHeight,
+      ),
       Paint()..color = Colors.red,
     );
   }
@@ -824,10 +855,8 @@ class NgocRongGame extends FlameGame
     add(chest);
     add(fire);
 
-    slime = SlimeEnemy(
-      position: player.position.clone(),
-      player: player,
-    )..size = Vector2.all(player.size.y * 1.35);
+    slime = SlimeEnemy(position: player.position.clone(), player: player)
+      ..size = Vector2.all(player.size.y * 1.35);
     // Sprite sheet has transparent lower padding; lower visible feet.
     slime.position.y = player.position.y + player.size.y * 0.45;
   }
