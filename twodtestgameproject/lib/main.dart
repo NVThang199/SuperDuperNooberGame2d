@@ -14,6 +14,7 @@ import 'settings_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -70,18 +71,21 @@ class _GameScreenState extends State<GameScreen> {
             ValueListenableBuilder<bool>(
               valueListenable: game.canOpenChest,
               builder: (ctx, canOpen, _) => canOpen
-                  ? Align(
-                      alignment: const Alignment(0, 0.35),
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          backgroundColor: Colors.amber,
-                          foregroundColor: Colors.black,
-                        ),
-                        onPressed: () => game.openChest(),
-                        child: const Text(
-                          'Mở rương',
-                          style: TextStyle(fontSize: 12),
+                  ? ValueListenableBuilder<bool>(
+                      valueListenable: game.chestOpenState,
+                      builder: (ctx2, isOpen, _) => Align(
+                        alignment: const Alignment(0, 0.35),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            backgroundColor: Colors.amber,
+                            foregroundColor: Colors.black,
+                          ),
+                          onPressed: () => game.openChest(),
+                          child: Text(
+                            isOpen ? 'Đóng rương' : 'Mở rương',
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
                       ),
                     )

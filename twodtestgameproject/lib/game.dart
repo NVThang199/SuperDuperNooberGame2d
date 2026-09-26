@@ -603,6 +603,7 @@ class NgocRongGame extends FlameGame
   GameSettings settings = GameSettings();
   final CharacterConfig character;
   final ValueNotifier<bool> canOpenChest = ValueNotifier(false);
+  final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
   int currentMap = 0;
   bool chestOpen = false;
 
@@ -681,6 +682,7 @@ class NgocRongGame extends FlameGame
   void openChest() {
     if (!canOpenChest.value) return;
     chestOpen = !chestOpen;
+    chestOpenState.value = chestOpen;
     if (chestOpen) {
       chest.sprite = chestOpenSprite;
     } else {
@@ -712,6 +714,7 @@ class NgocRongGame extends FlameGame
       // Chest giữ trạng thái mở/đóng, add lại luôn để rương ở map 0.
       add(chest);
       add(fire);
+      chestOpenState.value = chestOpen;
       player.position.x = size.x * 0.9;
     }
 
