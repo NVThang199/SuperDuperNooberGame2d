@@ -27,7 +27,7 @@ flutter:
     - assets/images/characters/owlet_monster/
     - assets/images/characters/pink_monster/
     - assets/images/enemies/slime3/
-    - assets/images/player/
     - assets/images/environment/
+    - assets/images/action/
     - assets/images/ui/
     - assets/images/background/

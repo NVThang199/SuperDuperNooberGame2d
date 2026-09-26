@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 import 'character_config.dart';
+import 'shield_badge.dart';
 
 class GameSettings {
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
@@ -115,7 +116,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   double health = 100;
   double maxHealth = 100;
   final ValueNotifier<double> healthNotifier = ValueNotifier(100);
+  double shield = 100;
+  double maxShield = 100;
+  final ValueNotifier<double> shieldNotifier = ValueNotifier(100);
+  bool _stunned = false;
+  double _stunTimer = 0;
+  bool get isStunned => _stunned;
+  bool get isShielding => _shielding;
   Sprite? _rockSprite;
+  late ShieldBadge _shieldBadge;
   double _runDustTimer = 0;
   bool _throwing = false;
   double _throwTimer = 0;
@@ -153,6 +162,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     final pushSheet = await game.images.load(character.pushPath);
     final dustSheet = await game.images.load(character.doubleJumpDustPath);
     final throwSheet = await game.images.load(character.throwPath);
+    final deathSheet = await game.images.load(character.deathPath);
     final rockImage = await game.images.load('${character.basePath}/Rock1.png');
     _rockSprite = Sprite(rockImage);
     final throwAnim = SpriteAnimation.fromFrameData(
@@ -265,9 +275,21 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           loop: false,
         ),
       ),
+      'stun': SpriteAnimation.fromFrameData(
+        deathSheet,
+        SpriteAnimationData.sequenced(
+          amount: 1,
+          stepTime: 1,
+          textureSize: character.textureSize,
+          texturePosition: Vector2(character.textureSize.x, 0),
+          loop: false,
+        ),
+      ),
     };
     current = 'idle';
     add(RectangleHitbox());
+    _shieldBadge = ShieldBadge(player: this);
+    game.add(_shieldBadge);
   }
 
   String _attackAnimForCombo(int step) {
@@ -276,8 +298,32 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     return 'attack1';
   }
 
+  void _triggerStun() {
+    if (_stunned) return;
+    _stunned = true;
+    _stunTimer = 1.0;
+    _shielding = false;
+    _attacking = false;
+    _throwing = false;
+    _targetVx = 0;
+    vx = 0;
+    current = 'stun';
+  }
+
+  void damageShield(double dmg) {
+    if (!_shielding || _stunned) return;
+    shield -= dmg;
+    if (shield <= 0) {
+      shield = 0;
+      shieldNotifier.value = 0;
+      _triggerStun();
+    } else {
+      shieldNotifier.value = shield;
+    }
+  }
+
   void attack() {
-    if (_shielding) return;
+    if (_stunned || _shielding) return;
     if (_attacking) {
       if (_comboStep == 1 && _comboWindow <= 0.18) {
         _comboStep = 2;
@@ -317,7 +363,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void throwRock() {
-    if (_throwing || _shielding || _rockSprite == null) return;
+    if (_stunned || _throwing || _shielding || _rockSprite == null) return;
     _throwing = true;
     _throwTimer = character.throwAmount * character.throwStepTime;
     _throwSpawnDelay = _throwTimer * 0.70;
@@ -332,6 +378,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void setShielding(bool active) {
+    if (_stunned) return;
     _shielding = active;
     _applySpeed();
     if (!_attacking) {
@@ -365,6 +412,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void setHorizontalInput(double input) {
+    if (_stunned) input = 0;
     _lastInput = input;
     _applySpeed();
   }
@@ -601,10 +649,20 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       _updateAnimationState();
     }
 
-    final minX = size.x / 2;
-    final maxX = game.size.x - size.x / 2;
-    if (position.x < minX) position.x = minX;
-    if (position.x > maxX) position.x = maxX;
+    // Shield stun logic
+    if (_stunned) {
+      _stunTimer -= dt;
+      if (_stunTimer <= 0) {
+        _stunned = false;
+        _stunTimer = 0;
+        current = 'idle';
+      }
+    } else {
+      final minX = size.x / 2;
+      final maxX = game.size.x - size.x / 2;
+      if (position.x < minX) position.x = minX;
+      if (position.x > maxX) position.x = maxX;
+    }
 
     if (_attacking) {
       _comboWindow -= dt;
@@ -632,15 +690,16 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void takeDamage(double damage) {
     if (_shielding) {
-      damage *= 0.5;
+      damageShield(damage);
+    } else {
+      health = (health - damage).clamp(0, maxHealth);
+      healthNotifier.value = health;
     }
-    health = (health - damage).clamp(0, maxHealth);
-    healthNotifier.value = health;
   }
 }
 
 class SlimeEnemy extends SpriteAnimationComponent
-    with HasGameReference<NgocRongGame> {
+    with HasGameReference<NgocRongGame>, CollisionCallbacks {
   final LocalPlayer player;
   double health = 30;
   double maxHealth = 30;
@@ -689,6 +748,16 @@ class SlimeEnemy extends SpriteAnimationComponent
       animation = _rightAnimation;
     } catch (e) {
       if (kDebugMode) print('SlimeEnemy load error: $e');
+    }
+    add(RectangleHitbox());
+  }
+
+  @override
+  void onCollisionStart(Set<Vector2> intersectionPoints, Component other) {
+    if (_dead) return;
+    if (other is LocalPlayer) {
+      other.damageShield(5);
+      directionX *= -1;
     }
   }
 
