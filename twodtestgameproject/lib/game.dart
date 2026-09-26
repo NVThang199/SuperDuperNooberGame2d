@@ -1,28 +1,87 @@
 import 'dart:async';
+import 'dart:math';
+import 'dart:ui';
 
+import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import 'package:flame/events.dart' hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
-import 'package:flutter/gestures.dart' show PointerMoveEvent, PointerDownEvent, PointerUpEvent;
+import 'package:flame/events.dart'
+    hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
+import 'package:flutter/gestures.dart'
+    show PointerMoveEvent, PointerDownEvent, PointerUpEvent;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
-enum PlayerCharacter { knight, owlet }
+import 'character_config.dart';
 
 class GameSettings {
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
   LogicalKeyboardKey rightKey = LogicalKeyboardKey.arrowRight;
   LogicalKeyboardKey jumpKey = LogicalKeyboardKey.space;
   LogicalKeyboardKey attackKey = LogicalKeyboardKey.keyZ;
+  LogicalKeyboardKey throwKey = LogicalKeyboardKey.keyC;
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
-  LogicalKeyboardKey perfectBlockKey = LogicalKeyboardKey.shiftLeft;
-  bool showMobileControls = true;
+  LogicalKeyboardKey runKey = LogicalKeyboardKey.shiftLeft;
+  bool showMobileControls =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
   bool mouseControl = true;
 }
 
-class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameReference<NgocRongGame>, KeyboardHandler {
-  static const double speed = 200.0;
-  static const double jumpImpulse = -350.0;
+class RockProjectile extends SpriteComponent
+    with HasGameReference<NgocRongGame> {
+  final double vx;
+  RockProjectile({
+    required Vector2 position,
+    required Sprite sprite,
+    required this.vx,
+    required Vector2 size,
+  }) : super(
+         position: position,
+         sprite: sprite,
+         size: size,
+         anchor: Anchor.center,
+         priority: 5,
+       );
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    position.x += vx * dt;
+    if (position.x < -100 || position.x > game.size.x + 100) {
+      removeFromParent();
+    }
+  }
+}
+
+class DoubleJumpDust extends SpriteAnimationComponent
+    with HasGameReference<NgocRongGame> {
+  DoubleJumpDust({
+    required Vector2 position,
+    required SpriteAnimation animation,
+    required Vector2 size,
+  }) : super(
+         position: position,
+         animation: animation,
+         size: size,
+         anchor: Anchor.center,
+         priority: 10,
+       );
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (animationTicker?.done() ?? false) removeFromParent();
+  }
+}
+
+class LocalPlayer extends SpriteAnimationGroupComponent<String>
+    with HasGameReference<NgocRongGame>, KeyboardHandler {
+  double get jumpImpulse => -size.y * 13;
+  double get gravity => size.y * 65;
+  double get movementSpeed => size.y * 25 / 12;
 
   double vx = 0;
   double vy = 0;
@@ -31,71 +90,215 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   bool _attacking = false;
   DateTime? _lastAttack;
   bool _shielding = false;
+  bool _running = false;
   bool _attackHeld = false;
   double _lastInput = 0;
+  double _coyoteTimer = 0;
+  double _jumpBuffer = 0;
+  double _targetVx = 0;
   final GameSettings settings;
-  
+  final CharacterConfig character;
+  bool _doubleJumpUsed = false;
+  SpriteAnimation? _dustAnimation;
+  SpriteAnimation? _walkRunPushDustAnimation;
+  SpriteAnimation? _throwAnimation;
+  Sprite? _rockSprite;
+  double _runDustTimer = 0;
+  bool _throwing = false;
+  double _throwTimer = 0;
+  double _throwSpawnDelay = 0;
+  bool _throwSpawned = false;
+
   int _comboStep = 0;
   double _comboWindow = 0;
+  bool get canAttack => true;
 
-  bool get canAttack => true; // Removed cooldown for hold-to-combo
-
-  LocalPlayer({required Vector2 position, GameSettings? settings})
-      : settings = settings ?? GameSettings(),
-        super(position: position, size: Vector2(96, 96), anchor: Anchor.center);
+  LocalPlayer({
+    required Vector2 position,
+    required this.character,
+    GameSettings? settings,
+  }) : settings = settings ?? GameSettings(),
+       super(position: position, size: Vector2(96, 96), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
-    final idleSheet = await game.images.load('player/Idle.png');
-    final walkSheet = await game.images.load('player/Walk.png');
-    final attack1Sheet = await game.images.load('player/Attack_1.png');
-    final attack2Sheet = await game.images.load('player/Attack_2.png');
-    final shieldSheet = await game.images.load('player/Shield.png');
-    final shieldAttackSheet = await game.images.load('player/Shield+Attack.png');
+    final idleSheet = await game.images.load(character.idlePath);
+    final walkSheet = await game.images.load(character.walkPath);
+    final runSheet = await game.images.load(character.runPath);
+    final walkRunPushDustSheet = await game.images.load(
+      character.walkRunPushDustPath,
+    );
+    final walkAttackSheet = await game.images.load(character.walkAttackPath);
+    final attack1Sheet = await game.images.load(character.attack1Path);
+    final attack2Sheet = await game.images.load(character.attack2Path);
+    final jumpSheet = await game.images.load(character.jumpPath);
+    final pushSheet = await game.images.load(character.pushPath);
+    final dustSheet = await game.images.load(character.doubleJumpDustPath);
+    final throwSheet = await game.images.load(character.throwPath);
+    final rockImage = await game.images.load('${character.basePath}/Rock1.png');
+    _rockSprite = Sprite(rockImage);
+    final throwAnim = SpriteAnimation.fromFrameData(
+      throwSheet,
+      SpriteAnimationData.sequenced(
+        amount: character.throwAmount,
+        stepTime: character.throwStepTime,
+        textureSize: character.textureSize,
+        loop: false,
+      ),
+    );
+    _throwAnimation = throwAnim;
+
+    _dustAnimation = SpriteAnimation.fromFrameData(
+      dustSheet,
+      SpriteAnimationData.sequenced(
+        amount: character.doubleJumpDustAmount,
+        stepTime: character.doubleJumpDustStepTime,
+        textureSize: character.textureSize,
+        loop: false,
+      ),
+    );
+    _walkRunPushDustAnimation = SpriteAnimation.fromFrameData(
+      walkRunPushDustSheet,
+      SpriteAnimationData.sequenced(
+        amount: character.walkRunPushDustAmount,
+        stepTime: character.walkRunPushDustStepTime,
+        textureSize: character.textureSize,
+        loop: false,
+      ),
+    );
 
     animations = {
-      'idle': SpriteAnimation.fromFrameData(idleSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.2, textureSize: Vector2(32, 32))),
-      'walk': SpriteAnimation.fromFrameData(walkSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
-      'attack1': SpriteAnimation.fromFrameData(attack1Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
-      'attack2': SpriteAnimation.fromFrameData(attack2Sheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32))),
-      'shield': SpriteAnimation.fromFrameData(shieldSheet, SpriteAnimationData.sequenced(amount: 1, stepTime: 1, textureSize: Vector2(32, 32))),
-      'shieldAttack': SpriteAnimation.fromFrameData(shieldAttackSheet, SpriteAnimationData.sequenced(amount: 4, stepTime: 0.1, textureSize: Vector2(32, 32), loop: true)),
+      'idle': SpriteAnimation.fromFrameData(
+        idleSheet,
+        SpriteAnimationData.sequenced(
+          amount: character.idleAmount,
+          stepTime: character.idleStepTime,
+          textureSize: character.textureSize,
+        ),
+      ),
+      'walk': SpriteAnimation.fromFrameData(
+        walkSheet,
+        SpriteAnimationData.sequenced(
+          amount: character.walkAmount,
+          stepTime: character.walkStepTime,
+          textureSize: character.textureSize,
+        ),
+      ),
+      'run': SpriteAnimation.fromFrameData(
+        runSheet,
+        SpriteAnimationData.sequenced(
+          amount: character.runAmount,
+          stepTime: character.runStepTime,
+          textureSize: character.textureSize,
+        ),
+      ),
+      'throw': _throwAnimation!,
+      'walkAttack': SpriteAnimation.fromFrameData(
+        walkAttackSheet,
+        SpriteAnimationData.sequenced(
+          amount: character.walkAttackAmount,
+          stepTime: character.walkAttackStepTime,
+          textureSize: character.textureSize,
+          loop: true,
+        ),
+      ),
+      'attack1': SpriteAnimation.fromFrameData(
+        attack1Sheet,
+        SpriteAnimationData.sequenced(
+          amount: character.attack1Amount,
+          stepTime: character.attack1StepTime,
+          textureSize: character.textureSize,
+          loop: false,
+        ),
+      ),
+      'attack2': SpriteAnimation.fromFrameData(
+        attack2Sheet,
+        SpriteAnimationData.sequenced(
+          amount: character.attack2Amount,
+          stepTime: character.attack2StepTime,
+          textureSize: character.textureSize,
+          loop: false,
+        ),
+      ),
+      'jump': SpriteAnimation.fromFrameData(
+        jumpSheet,
+        SpriteAnimationData.sequenced(
+          amount: character.jumpAmount,
+          stepTime: character.jumpStepTime,
+          textureSize: character.textureSize,
+          loop: false,
+        ),
+      ),
+      'doubleJump': SpriteAnimation.fromFrameData(
+        jumpSheet,
+        SpriteAnimationData.sequenced(
+          amount: character.jumpAmount,
+          stepTime: character.jumpStepTime,
+          textureSize: character.textureSize,
+          loop: false,
+        ),
+      ),
+      'push': SpriteAnimation.fromFrameData(
+        pushSheet,
+        SpriteAnimationData.sequenced(
+          amount: character.pushAmount,
+          stepTime: character.pushStepTime,
+          textureSize: character.textureSize,
+        ),
+      ),
     };
     current = 'idle';
+    add(RectangleHitbox());
+  }
+
+  String _attackAnimForCombo(int step) {
+    if (step == 2) return 'attack2';
+    if (_lastInput.abs() > 0.1) return 'walkAttack';
+    return 'attack1';
   }
 
   void attack() {
     if (_shielding) return;
-    
-    // Allow attack advancement or start
     if (_attacking) {
-      if (_comboStep == 1 && _comboWindow > 0) {
+      if (_comboStep == 1 && _comboWindow <= 0.18) {
         _comboStep = 2;
-        _comboWindow = 0.4;
+        _comboWindow = 0.48;
         current = 'attack2';
       }
       return;
     }
-    
-    if (_lastAttack != null && DateTime.now().difference(_lastAttack!) < const Duration(milliseconds: 200)) return;
-    
+    if (_lastAttack != null &&
+        DateTime.now().difference(_lastAttack!) <
+            const Duration(milliseconds: 200))
+      return;
     _lastAttack = DateTime.now();
     _attacking = true;
     _comboStep = 1;
-    _comboWindow = 0.4;
-    _applySpeed(); // Giảm tốc độ ngay khi bắt đầu đòn đánh
-    current = 'attack1';
+    _comboWindow = 0.48;
+    _applySpeed();
+    current = _attackAnimForCombo(1);
   }
 
-  void perfectBlock() {
-    if (_attacking) return;
-    _attacking = true;
-    vx = 0;
-    current = 'shieldAttack';
-    Future.delayed(const Duration(milliseconds: 400), () {
-      _attacking = false;
-      _updateAnimationState();
-    });
+  void _spawnRock() {
+    if (_rockSprite == null) return;
+    game.add(
+      RockProjectile(
+        position: position + Vector2(direction * size.x * 0.45, size.y * 0.05),
+        sprite: _rockSprite!,
+        vx: direction * movementSpeed * 2.5,
+        size: Vector2.all(size.y * 0.30),
+      ),
+    );
+  }
+
+  void throwRock() {
+    if (_throwing || _shielding || _rockSprite == null) return;
+    _throwing = true;
+    _throwTimer = character.throwAmount * character.throwStepTime;
+    _throwSpawnDelay = _throwTimer * 0.70;
+    _throwSpawned = false;
+    _targetVx = 0;
+    current = 'throw';
   }
 
   void setAttackHeld(bool active) {
@@ -105,7 +308,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
 
   void setShielding(bool active) {
     _shielding = active;
-    _applySpeed(); // Cập nhật tốc độ ngay khi đổi state
+    _applySpeed();
     if (!_attacking) {
       _updateAnimationState();
     }
@@ -113,12 +316,20 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
 
   void toggleShield() => setShielding(!_shielding);
 
+  void setRunning(bool active) {
+    _running = active;
+    _applySpeed();
+    if (!_attacking) _updateAnimationState();
+  }
+
   void _updateAnimationState() {
-    if (_attacking) return; // Keep current attack animation
+    if (_attacking || _throwing) return;
     if (_shielding) {
-      current = 'shield';
-    } else if (vx != 0) {
-      current = 'walk';
+      current = 'push';
+    } else if (!isOnGround) {
+      current = _doubleJumpUsed ? 'doubleJump' : 'jump';
+    } else if (_lastInput != 0) {
+      current = _running ? 'run' : 'walk';
     } else {
       current = 'idle';
     }
@@ -130,28 +341,79 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   }
 
   void _applySpeed() {
-    double multiplier = _attacking ? 0.2 : (_shielding ? 0.3 : 1.0);
-    vx = _lastInput * speed * multiplier;
-    if (_lastInput < -0.1) { direction = -1; flipAround(); }
-    else if (_lastInput > 0.1) { direction = 1; flipAround(); }
-    if (!_attacking && !_shielding) {
-      current = (_lastInput == 0) ? 'idle' : 'walk';
+    double runMul = _running && isOnGround ? 1.7 : 1.0;
+    double multiplier = _attacking ? 0.2 : (_shielding ? 0.3 : runMul);
+    _targetVx = _lastInput * movementSpeed * multiplier;
+    if (_lastInput < -0.1) {
+      direction = -1;
+      flipAround();
+    } else if (_lastInput > 0.1) {
+      direction = 1;
+      flipAround();
+    }
+    if (!_attacking) _updateAnimationState();
+  }
+
+  void _doJump({bool isDouble = false}) {
+    vy = jumpImpulse;
+    isOnGround = false;
+    _coyoteTimer = 0;
+    _jumpBuffer = 0;
+    if (isDouble) {
+      _doubleJumpUsed = true;
+      current = 'doubleJump';
+      _spawnDust();
+    } else {
+      current = 'jump';
     }
   }
 
+  void _spawnDust() {
+    if (_dustAnimation == null) return;
+    final anim = _dustAnimation!.clone();
+    final dust = DoubleJumpDust(
+      position: position.clone(),
+      animation: anim,
+      size: Vector2.all(size.y * 1.15),
+    );
+    game.add(dust);
+  }
+
+  void _spawnRunPushDust() {
+    if (_walkRunPushDustAnimation == null) return;
+    final anim = _walkRunPushDustAnimation!.clone();
+    final behind = Vector2(
+      position.x - direction * 6,
+      position.y - size.y * 0.05,
+    );
+    final dust = DoubleJumpDust(
+      position: behind,
+      animation: anim,
+      size: Vector2.all(size.y * 1.15),
+    );
+    dust.scale.x = direction < 0 ? -1 : 1;
+    game.add(dust);
+  }
+
   void jump() {
-    if (isOnGround) {
-      vy = jumpImpulse;
-      isOnGround = false;
+    final canJump = isOnGround || _coyoteTimer > 0;
+    if (canJump) {
+      _doubleJumpUsed = false;
+      _doJump(isDouble: false);
+    } else if (!_doubleJumpUsed) {
+      _doJump(isDouble: true);
+    } else {
+      _jumpBuffer = 0.12;
     }
   }
 
   void flipAround() {
-    if (direction == -1 && scale.x > 0) scale.x *= -1;
-    else if (direction == 1 && scale.x < 0) scale.x *= -1;
+    if (direction == -1 && scale.x > 0)
+      scale.x *= -1;
+    else if (direction == 1 && scale.x < 0)
+      scale.x *= -1;
   }
 
-  @override
   void onPointerMove(PointerMoveEvent event) {
     if (!settings.mouseControl) return;
     final targetX = event.localPosition.dx;
@@ -166,7 +428,6 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   @override
   void onPointerDown(PointerDownEvent event) {
     if (!settings.mouseControl) return;
-    // Mouse button bits: left=1<<0, right=1<<1
     if ((event.buttons & (1 << 0)) != 0) {
       attack();
     }
@@ -187,17 +448,30 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
     if (event is KeyDownEvent) {
-      if (event.logicalKey == settings.leftKey) setHorizontalInput(-1);
-      else if (event.logicalKey == settings.rightKey) setHorizontalInput(1);
-      else if (event.logicalKey == settings.jumpKey) jump();
-      else if (event.logicalKey == settings.attackKey) attack();
-      else if (event.logicalKey == settings.shieldKey) setShielding(true);
-      else if (event.logicalKey == settings.perfectBlockKey) perfectBlock();
+      if (event.logicalKey == settings.leftKey)
+        setHorizontalInput(-1);
+      else if (event.logicalKey == settings.rightKey)
+        setHorizontalInput(1);
+      else if (event.logicalKey == settings.jumpKey)
+        jump();
+      else if (event.logicalKey == settings.attackKey)
+        attack();
+      else if (event.logicalKey == settings.throwKey)
+        throwRock();
+      else if (event.logicalKey == settings.shieldKey)
+        setShielding(true);
+      else if (event.logicalKey == settings.runKey)
+        setRunning(true);
       return true;
     } else if (event is KeyUpEvent) {
-      if (event.logicalKey == settings.leftKey && vx < 0) setHorizontalInput(0);
-      else if (event.logicalKey == settings.rightKey && vx > 0) setHorizontalInput(0);
-      else if (event.logicalKey == settings.shieldKey) setShielding(false);
+      if (event.logicalKey == settings.leftKey)
+        setHorizontalInput(0);
+      else if (event.logicalKey == settings.rightKey)
+        setHorizontalInput(0);
+      else if (event.logicalKey == settings.shieldKey)
+        setShielding(false);
+      else if (event.logicalKey == settings.runKey)
+        setRunning(false);
       return true;
     }
     return false;
@@ -206,8 +480,32 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
   @override
   void update(double dt) {
     super.update(dt);
-    vy += 900 * dt;
-    // Cập nhật vị trí dùng vx hiện tại (đã bao gồm multiplier)
+    if (_throwing) {
+      _throwSpawnDelay -= dt;
+      if (!_throwSpawned && _throwSpawnDelay <= 0) {
+        _throwSpawned = true;
+        _spawnRock();
+      }
+      _throwTimer -= dt;
+      if (_throwTimer <= 0) {
+        _throwing = false;
+        _throwSpawned = false;
+        _updateAnimationState();
+      }
+    }
+    if (_coyoteTimer > 0) _coyoteTimer = (_coyoteTimer - dt).clamp(0, 0.12);
+    if (_jumpBuffer > 0) {
+      _jumpBuffer -= dt;
+      if (_jumpBuffer <= 0)
+        _jumpBuffer = 0;
+      else if (isOnGround || _coyoteTimer > 0) {
+        _doubleJumpUsed = false;
+        _doJump();
+      }
+    }
+    vx = lerpDouble(vx, _targetVx, (12 * dt).clamp(0.0, 1.0))!;
+    vy += gravity * dt;
+    final wasOnGround = isOnGround;
     position.x += vx * dt;
     position.y += vy * dt;
 
@@ -216,7 +514,32 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
     if (position.y >= groundY) {
       position.y = groundY;
       vy = 0;
+      final justLanded = !isOnGround;
       isOnGround = true;
+      if (justLanded) _doubleJumpUsed = false;
+      if (_jumpBuffer > 0) {
+        _doubleJumpUsed = false;
+        _doJump();
+      } else if (!_attacking) {
+        _updateAnimationState();
+      }
+    } else if (wasOnGround) {
+      isOnGround = false;
+      _coyoteTimer = 0.12;
+    }
+
+    if (isOnGround && _running && _lastInput != 0 && !_attacking) {
+      _runDustTimer -= dt;
+      if (_runDustTimer <= 0) {
+        _runDustTimer = 0.18;
+        _spawnRunPushDust();
+      }
+    } else {
+      _runDustTimer = 0;
+    }
+
+    if (!isOnGround && !_attacking && !_shielding) {
+      _updateAnimationState();
     }
 
     final minX = size.x / 2;
@@ -226,19 +549,24 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
 
     if (_attacking) {
       _comboWindow -= dt;
-      
-      // Transition to attack2 when holding attack button (not shielding)
-      if (_attackHeld && !_shielding && _comboStep == 1 && _comboWindow <= 0.2) {
+      if (_attackHeld &&
+          !_shielding &&
+          _comboStep == 1 &&
+          _comboWindow <= 0.08) {
         _comboStep = 2;
-        _comboWindow = 0.4;
+        _comboWindow = 0.48;
         current = 'attack2';
       }
-      
+
       if (_comboWindow <= 0) {
         _attacking = false;
         _comboStep = 0;
-        _applySpeed(); // Khôi phục tốc độ bình thường khi kết thúc đòn đánh
-        _updateAnimationState();
+        _applySpeed();
+        if (_attackHeld && !_shielding) {
+          attack();
+        } else {
+          _updateAnimationState();
+        }
       }
     }
   }
@@ -246,7 +574,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String> with HasGameRefe
 
 class RemotePlayer extends PositionComponent {
   RemotePlayer({required Vector2 position})
-      : super(position: position, size: Vector2(32, 48), anchor: Anchor.center);
+    : super(position: position, size: Vector2(32, 48), anchor: Anchor.center);
 
   @override
   void render(Canvas canvas) {
@@ -260,11 +588,20 @@ class RemotePlayer extends PositionComponent {
   }
 }
 
-class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
+class NgocRongGame extends FlameGame
+    with HasCollisionDetection, HasKeyboardHandlerComponents {
+  static final Random _shakeRandom = Random();
+  final Vector2 _shakeOffset = Vector2.zero();
+  double _shakeTimer = 0;
   late LocalPlayer player;
   late SpriteComponent background;
+  late SpriteComponent background1;
   RectangleComponent? ground;
   GameSettings settings = GameSettings();
+  final CharacterConfig character;
+  int currentMap = 0;
+
+  NgocRongGame({required this.character});
 
   @override
   Future<void> onLoad() async {
@@ -276,15 +613,55 @@ class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
     );
     add(background);
 
+    final forest1 = await images.load('background/forest_map1.png');
+    background1 = SpriteComponent(
+      sprite: Sprite(forest1),
+      size: size.clone(),
+      priority: -1,
+    );
+
     ground = null;
 
     final playerSize = size.y * 0.2;
     final groundHeight = size.y * 0.1;
     player = LocalPlayer(
       position: Vector2(size.x / 2, size.y - groundHeight - playerSize / 2),
+      character: character,
       settings: settings,
     )..size = Vector2.all(playerSize);
     add(player);
+    camera.follow(player);
+    camera.viewfinder.zoom = 1.0;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    if (currentMap == 0 && player.position.x > size.x * 0.95) {
+      currentMap = 1;
+      background.removeFromParent();
+      add(background1);
+      player.position.x = size.x * 0.1;
+    } else if (currentMap == 1 && player.position.x < size.x * 0.05) {
+      currentMap = 0;
+      background1.removeFromParent();
+      add(background);
+      player.position.x = size.x * 0.9;
+    }
+
+    if (_shakeTimer > 0) {
+      _shakeTimer -= dt;
+      camera.viewfinder.position -= _shakeOffset;
+      _shakeOffset.setValues(
+        (_shakeRandom.nextDouble() - 0.5) * 4,
+        (_shakeRandom.nextDouble() - 0.5) * 4,
+      );
+      camera.viewfinder.position += _shakeOffset;
+    } else if (_shakeOffset.length > 0) {
+      camera.viewfinder.position -= _shakeOffset;
+      _shakeOffset.setZero();
+    }
   }
 
   @override
@@ -292,10 +669,13 @@ class NgocRongGame extends FlameGame with HasKeyboardHandlerComponents {
     super.onGameResize(size);
     if (isLoaded) {
       background.size = size.clone();
+      background1.size = size.clone();
       final playerSize = size.y * 0.2;
       final groundHeight = size.y * 0.1;
       player.size = Vector2.all(playerSize);
       player.position.y = size.y - groundHeight - playerSize / 2;
+      final maxX = size.x - playerSize / 2;
+      if (player.position.x > maxX) player.position.x = maxX;
     }
   }
 }
