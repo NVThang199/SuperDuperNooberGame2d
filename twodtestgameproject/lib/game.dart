@@ -139,6 +139,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   double maxStamina = StaminaConfig.maxStamina;
   final ValueNotifier<double> staminaNotifier = ValueNotifier(StaminaConfig.maxStamina);
   double _staminaRegenDelay = 0;
+  bool _staminaExhausted = false;
+
+  bool _canUseStamina(double amount) =>
+      !_staminaExhausted && stamina >= amount;
+
+  bool get _hasRecoveredStamina =>
+      stamina >= maxStamina * 0.5;
+
 
   LocalPlayer({
     required Vector2 position,
@@ -329,7 +337,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void attack() {
     if (_stunned || _shielding) return;
-    if (stamina < StaminaConfig.attackCost) return;
+    if (!_canUseStamina(StaminaConfig.attackCost)) return;
     consumeStamina(StaminaConfig.attackCost);
     if (_attacking) {
       if (_comboStep == 1 && _comboWindow <= 0.18) {
@@ -371,7 +379,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void throwRock() {
     if (_stunned || _throwing || _shielding || _rockSprite == null) return;
-    if (stamina < StaminaConfig.throwRockCost) return;
+    if (!_canUseStamina(StaminaConfig.throwRockCost)) return;
     consumeStamina(StaminaConfig.throwRockCost);
     _throwing = true;
     _throwTimer = character.throwAmount * character.throwStepTime;
@@ -398,7 +406,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   void toggleShield() => setShielding(!_shielding);
 
   void setRunning(bool active) {
-    _running = active && stamina > 0;
+    _running = active && _canUseStamina(0);
     _applySpeed();
     if (!_attacking) _updateAnimationState();
   }
@@ -421,15 +429,19 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     stamina = (stamina - amount).clamp(0.0, maxStamina);
     staminaNotifier.value = stamina;
     _staminaRegenDelay = StaminaConfig.regenDelay;
+    if (stamina < StaminaConfig.attackCost) {
+      _staminaExhausted = true;
+    }
   }
 
   void _updateStamina(double dt) {
+    if (_staminaExhausted && _hasRecoveredStamina) {
+      _staminaExhausted = false;
+    }
     if (_staminaRegenDelay > 0) {
       _staminaRegenDelay -= dt;
-      // slow regen while delay > 0
       stamina = (stamina + StaminaConfig.activeRegenRate * dt).clamp(0.0, maxStamina);
     } else {
-      // idle regen
       stamina = (stamina + StaminaConfig.idleRegenRate * dt).clamp(0.0, maxStamina);
     }
     staminaNotifier.value = stamina;
@@ -519,7 +531,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       _doubleJumpUsed = false;
       _doJump(isDouble: false);
     } else if (!_doubleJumpUsed) {
-      if (stamina < StaminaConfig.doubleJumpCost) return;
+      if (!_canUseStamina(StaminaConfig.doubleJumpCost)) return;
       consumeStamina(StaminaConfig.doubleJumpCost);
       _doJump(isDouble: true);
     } else {
