@@ -266,14 +266,6 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Future<void> _openCustomizer() async {
-    final changed = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => const OverlayEditorPage()),
-    );
-    if (changed == true) await _loadLayout();
-  }
-
   Widget _btn(Size size, OverlayButtonId id, Widget child) {
     final c = _layout.buttons[id]!;
     final w = 72 * c.scale;

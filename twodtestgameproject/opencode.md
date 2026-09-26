@@ -4,7 +4,7 @@
 ## Game Info
 - Flutter + Flame 2D game.
 - Main files: lib/game.dart, lib/main.dart, lib/settings_page.dart, pubspec.yaml.
-- Assets: characters/dude_monster, owlet_monster, pink_monster.
+- Assets: `assets/images/characters/{dude,owlet,pink}_monster/`, `enemies/slime3/`, `player/`, `environment/` (Chest.png, Fire.png), `ui/`, `background/`. Orphan at root `assets/*.png` (player_idle, player_walk, tileset) not bundled — remove or move to `assets/images/` if needed. See `pubspec.yaml` assets list.
 
 ## Implemented Features
 - Mobile/Desktop controls (Landscape).
@@ -18,6 +18,12 @@
 - Use `lerp` for smooth movements.
 - Gated logs: `if (kDebugMode) print()`.
 - Run `flutter analyze` & `flutter build` before claiming success.
+
+## Skills — Auto-load Rules (for partners/agents)
+- Local skills: `.opencode/skills/<name>/SKILL.md` auto-loaded (no config needed). Current: `flutter-flame-game`.
+- GitHub/external skills: only from allowlist in `opencode.json` → `skills.urls`. Do not auto-fetch arbitrary GitHub repos.
+- To add new GitHub skill: 1) verify source/license/content, 2) add URL to allowlist, 3) restart opencode.
+- Agent must apply matching skill when keywords hit (game loop, sprite, input, etc.) — see `flutter-flame-game` SKILL.md.
 
 ---
 

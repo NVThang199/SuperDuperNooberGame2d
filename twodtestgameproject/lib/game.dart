@@ -831,7 +831,7 @@ class NgocRongGame extends FlameGame
       priority: -1,
     );
 
-    final chestImg = await images.load('Chest.png');
+    final chestImg = await images.load('environment/Chest.png');
     final chestPos = Vector2(
       size.x * 0.7,
       size.y - size.y * 0.1 - size.y * 0.2 + size.y * 0.08,
@@ -852,7 +852,7 @@ class NgocRongGame extends FlameGame
       srcSize: Vector2.all(32),
     );
 
-    final fireImg = await images.load('Fire.png');
+    final fireImg = await images.load('environment/Fire.png');
     fire = SpriteAnimationComponent(
       animation: SpriteAnimation.fromFrameData(
         fireImg,

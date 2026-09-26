@@ -23,7 +23,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
     - assets/images/characters/dude_monster/
     - assets/images/characters/owlet_monster/
     - assets/images/characters/pink_monster/
