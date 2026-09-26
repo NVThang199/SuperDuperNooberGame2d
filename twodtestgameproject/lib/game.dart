@@ -50,6 +50,13 @@ class RockProjectile extends SpriteComponent
   void update(double dt) {
     super.update(dt);
     position.x += vx * dt;
+    final slime = game.slime;
+    if (game.currentMap == 1 && !slime._dead &&
+        (position - slime.position).length < slime.size.x * 0.35) {
+      slime.takeDamage(10);
+      removeFromParent();
+      return;
+    }
     if (position.x < -100 || position.x > game.size.x + 100) {
       removeFromParent();
     }
@@ -102,6 +109,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
   SpriteAnimation? _throwAnimation;
+
+  // Health system
+  double health = 100;
+  double maxHealth = 100;
+  final ValueNotifier<double> healthNotifier = ValueNotifier(100);
   Sprite? _rockSprite;
   double _runDustTimer = 0;
   bool _throwing = false;
@@ -118,7 +130,12 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     required this.character,
     GameSettings? settings,
   }) : settings = settings ?? GameSettings(),
-       super(position: position, size: Vector2(96, 96), anchor: Anchor.center);
+       super(
+         position: position,
+         size: Vector2(96, 96),
+         anchor: Anchor.center,
+         priority: 5,
+       );
 
   @override
   Future<void> onLoad() async {
@@ -272,6 +289,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
             const Duration(milliseconds: 200))
       return;
     _lastAttack = DateTime.now();
+    final slime = game.slime;
+    if (game.currentMap == 1 && !slime._dead &&
+        (position - slime.position).length < (size.x + slime.size.x) * 0.35) {
+      slime.takeDamage(10);
+    }
     _attacking = true;
     _comboStep = 1;
     _comboWindow = 0.48;
@@ -570,6 +592,129 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       }
     }
   }
+
+  void takeDamage(double damage) {
+    if (_shielding) {
+      damage *= 0.5; // khiên giảm 50% sát thương
+    }
+    health = (health - damage).clamp(0, maxHealth);
+    healthNotifier.value = health;
+  }
+}
+
+class SlimeEnemy extends SpriteAnimationComponent
+    with HasGameReference<NgocRongGame> {
+  final LocalPlayer player;
+  double health = 30;
+  double maxHealth = 30;
+  final ValueNotifier<double> healthNotifier = ValueNotifier(30);
+  bool _dead = false;
+  double _respawnTimer = 0;
+  double vx = 0;
+  int directionX = 1;
+  double vy = 0;
+  double _patrolTimer = 0;
+  SpriteAnimation? _rightAnimation;
+  SpriteAnimation? _leftAnimation;
+
+  SlimeEnemy({required Vector2 position, required this.player})
+      : super(
+          position: position,
+          size: Vector2.all(112),
+          anchor: Anchor.center,
+          priority: 2,
+        );
+
+  @override
+  Future<void> onLoad() async {
+    try {
+      final walkImg = await game.images.load('enemies/slime3/Slime3_Walk_with_shadow.png');
+      _rightAnimation = SpriteAnimation.fromFrameData(
+        walkImg,
+        SpriteAnimationData.sequenced(amount: 8, stepTime: 0.3, textureSize: Vector2.all(64), texturePosition: Vector2(0, 192)),
+      );
+      _leftAnimation = SpriteAnimation.fromFrameData(
+        walkImg,
+        SpriteAnimationData.sequenced(amount: 8, stepTime: 0.3, textureSize: Vector2.all(64), texturePosition: Vector2(0, 128)),
+      );
+      animation = _rightAnimation;
+    } catch (e) {
+      if (kDebugMode) print('SlimeEnemy load error: $e');
+    }
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_dead) {
+      _respawnTimer -= dt;
+      if (_respawnTimer <= 0) {
+        _dead = false;
+        health = maxHealth;
+        healthNotifier.value = health;
+        position.setValues(game.size.x * 0.5, game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28);
+        opacity = 1;
+      }
+      return;
+    }
+
+    _patrolTimer -= dt;
+    if (_patrolTimer <= 0) {
+      directionX = (Random().nextBool() ? 1 : -1);
+      _patrolTimer = 2.0 + Random().nextDouble() * 3.0;
+    }
+
+    animation = directionX > 0 ? _rightAnimation : _leftAnimation;
+    // Slower patrol: 0.06x height
+    vx = directionX * game.size.y * 0.06;
+
+    final groundY = game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28;
+    vy += 65 * dt;
+    position.y += vy * dt;
+    if (position.y >= groundY) {
+      position.y = groundY;
+      vy = 0;
+    }
+    position.x += vx * dt;
+
+    // Patrol center zone: between 40% and 60% width
+    final minX = game.size.x * 0.40;
+    final maxX = game.size.x * 0.60;
+    if (position.x < minX || position.x > maxX) {
+      position.x = position.x.clamp(minX, maxX);
+      directionX *= -1;
+      _patrolTimer = 2.0;
+    }
+  }
+
+  void takeDamage(double damage) {
+    if (_dead) return;
+    health = (health - damage).clamp(0, maxHealth);
+    healthNotifier.value = health;
+    if (health <= 0) {
+      _dead = true;
+      _respawnTimer = 5;
+      opacity = 0;
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    if (health >= maxHealth) return;
+    final barWidth = size.x * 0.45;
+    final barHeight = size.y * 0.03;
+    // The visible slime is centered in the frame; keep the bar centered on it.
+    // Compensate Slime3 transparent frame padding: visible head is lower/right.
+    final barY = size.y * 0.04;
+    final barX = size.x * 0.48;
+    final bgRect = Rect.fromLTWH(barX - barWidth / 2, barY, barWidth, barHeight);
+    canvas.drawRect(bgRect, Paint()..color = const Color(0xAA000000));
+    canvas.drawRect(
+      Rect.fromLTWH(barX - barWidth / 2, barY, barWidth * (health / maxHealth), barHeight),
+      Paint()..color = Colors.red,
+    );
+  }
 }
 
 class RemotePlayer extends PositionComponent {
@@ -606,6 +751,7 @@ class NgocRongGame extends FlameGame
   final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
   int currentMap = 0;
   bool chestOpen = false;
+  late SlimeEnemy slime;
 
   NgocRongGame({required this.character});
 
@@ -677,6 +823,13 @@ class NgocRongGame extends FlameGame
     camera.viewfinder.zoom = 1.0;
     add(chest);
     add(fire);
+
+    slime = SlimeEnemy(
+      position: player.position.clone(),
+      player: player,
+    )..size = Vector2.all(player.size.y * 1.35);
+    // Sprite sheet has transparent lower padding; lower visible feet.
+    slime.position.y = player.position.y + player.size.y * 0.45;
   }
 
   void openChest() {
@@ -698,20 +851,26 @@ class NgocRongGame extends FlameGame
   void update(double dt) {
     super.update(dt);
 
-    // Rương + lửa chỉ ở map 0 (forest). Sang map 1 thì gỡ, về map 0 thì thêm lại.
-    if (currentMap == 0 && player.position.x > size.x * 0.95) {
+    // Chuyển map tại giới hạn di chuyển, không dùng % màn hình.
+    // Màn hình desktop rộng có thể không bao giờ đạt 95% vì player bị clamp ở mép.
+    final minPlayerX = player.size.x / 2;
+    final maxPlayerX = size.x - player.size.x / 2;
+    if (currentMap == 0 && player.position.x >= maxPlayerX - 1) {
       currentMap = 1;
+      removeAll(children.whereType<DoubleJumpDust>());
       background.removeFromParent();
       add(background1);
       chest.removeFromParent();
       fire.removeFromParent();
+      add(slime);
       canOpenChest.value = false;
       player.position.x = size.x * 0.1;
-    } else if (currentMap == 1 && player.position.x < size.x * 0.05) {
+    } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
       currentMap = 0;
+      removeAll(children.whereType<DoubleJumpDust>());
       background1.removeFromParent();
       add(background);
-      // Chest giữ trạng thái mở/đóng, add lại luôn để rương ở map 0.
+      slime.removeFromParent();
       add(chest);
       add(fire);
       chestOpenState.value = chestOpen;
