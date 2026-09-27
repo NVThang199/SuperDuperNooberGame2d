@@ -111,6 +111,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   final CharacterConfig character;
   bool _doubleJumpUsed = false;
   final Set<LogicalKeyboardKey> _keysPressed = {};
+  final Set<double> _movementInputs = {};
+  bool _shieldBroken = false;
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
   SpriteAnimation? _throwAnimation;
@@ -126,6 +128,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   double _stunTimer = 0;
   bool get isStunned => _stunned;
   bool get isShielding => _shielding;
+  bool get isShieldBroken => _shieldBroken;
   Sprite? _rockSprite;
   late ShieldBadge _shieldBadge;
   double _runDustTimer = 0;
@@ -357,6 +360,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     if (!_shielding || _stunned) return;
     consumeStamina(30);
     if (stamina <= 0) {
+      _shieldBroken = true;
       _triggerStun();
     }
   }
@@ -437,6 +441,12 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void setShielding(bool active) {
     if (_stunned) return;
+    if (active && _stunTimer > 0) {
+      _shieldBroken = true;
+      _stunTimer = 0;
+      _stunned = false;
+      _stunTimer = 0;
+    }
     _shielding = active;
     _applySpeed();
     if (!_attacking) {
@@ -496,6 +506,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         maxStamina,
       );
     }
+    if (stamina > 0 && _shieldBroken) {
+      _shieldBroken = false;
+    }
     staminaNotifier.value = stamina;
   }
 
@@ -517,22 +530,26 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void setHorizontalInput(double input) {
-    if (_stunned) input = 0;
-    _lastInput = input;
+    if (input == 0) {
+      _movementInputs.clear();
+    } else {
+      _movementInputs
+        ..removeWhere((value) => value == -input)
+        ..add(input);
+    }
+    _applyHorizontalInput();
+  }
+
+  void _applyHorizontalInput() {
+    final input = _movementInputs.isEmpty ? 0.0 : _movementInputs.last;
+    _lastInput = _stunned ? 0 : input;
     _applySpeed();
   }
 
   void _updateMovementDirection() {
-    if (_keysPressed.isEmpty) {
-      setHorizontalInput(0);
-    } else {
-      final last = _keysPressed.last;
-      if (last == settings.rightKey) {
-        setHorizontalInput(1);
-      } else if (last == settings.leftKey) {
-        setHorizontalInput(-1);
-      }
-    }
+    final right = _keysPressed.contains(settings.rightKey);
+    final left = _keysPressed.contains(settings.leftKey);
+    setHorizontalInput(right == left ? 0 : (right ? 1 : -1));
   }
 
   void _doJump({bool isDouble = false}) {

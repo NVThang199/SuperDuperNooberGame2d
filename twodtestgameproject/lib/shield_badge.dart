@@ -38,15 +38,16 @@ class ShieldBadge extends PositionComponent with HasGameReference<NgocRongGame> 
     super.update(dt);
     position.setValues(
       player.position.x,
-      player.position.y - player.size.y * 0.6,
+      player.position.y - player.size.y * 0.5,
     );
     scale = Vector2.all(1);
 
-    // Show badge only while shielding
     final show = player.isShielding ? 1.0 : 0.0;
     _shieldIcon.opacity = show;
 
-    // Switch icon sprite: full when shielding with stamina, broken when no stamina
-    _shieldIcon.sprite = player.stamina > 0 ? _fullShield : _brokenShield;
+    final isBroken = player.isShieldBroken || player.stamina <= 0;
+    _shieldIcon.sprite = isBroken ? _brokenShield : _fullShield;
+    final iconSize = player.size.x * (isBroken ? 0.4 : 0.45);
+    _shieldIcon.size = Vector2.all(iconSize);
   }
 }
