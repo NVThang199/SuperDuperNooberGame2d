@@ -26,6 +26,7 @@ class GameSettings {
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
   LogicalKeyboardKey runKey = LogicalKeyboardKey.shiftLeft;
   LogicalKeyboardKey chestKey = LogicalKeyboardKey.keyR;
+  LogicalKeyboardKey inventoryKey = LogicalKeyboardKey.keyI;
   bool showMobileControls =
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -111,6 +112,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   final CharacterConfig character;
   bool _doubleJumpUsed = false;
   final Set<LogicalKeyboardKey> _keysPressed = {};
+  final Set<double> _movementInputs = {};
+  bool _shieldBroken = false;
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
   SpriteAnimation? _throwAnimation;
@@ -126,6 +129,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   double _stunTimer = 0;
   bool get isStunned => _stunned;
   bool get isShielding => _shielding;
+  bool get isShieldBroken => _shieldBroken;
   Sprite? _rockSprite;
   late ShieldBadge _shieldBadge;
   double _runDustTimer = 0;
@@ -152,6 +156,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   );
   double _staminaRegenDelay = 0;
   bool _staminaExhausted = false;
+  final ValueNotifier<bool> inventoryOpen = ValueNotifier(false);
+  final ValueNotifier<int> inventoryPage = ValueNotifier(0);
 
   bool _canUseStamina(double amount) => !_staminaExhausted && stamina >= amount;
 
@@ -355,13 +361,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void damageShield(double dmg) {
     if (!_shielding || _stunned) return;
-    shield -= dmg;
-    if (shield <= 0) {
-      shield = 0;
-      shieldNotifier.value = 0;
+    consumeStamina(30);
+    if (stamina <= 0) {
+      _shieldBroken = true;
       _triggerStun();
-    } else {
-      shieldNotifier.value = shield;
     }
   }
 
@@ -441,6 +444,12 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void setShielding(bool active) {
     if (_stunned) return;
+    if (active && _stunTimer > 0) {
+      _shieldBroken = true;
+      _stunTimer = 0;
+      _stunned = false;
+      _stunTimer = 0;
+    }
     _shielding = active;
     _applySpeed();
     if (!_attacking) {
@@ -489,11 +498,19 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         0.0,
         maxStamina,
       );
+    } else if (_shielding) {
+      stamina = (stamina + StaminaConfig.shieldRegenRate * dt).clamp(
+        0.0,
+        maxStamina,
+      );
     } else {
       stamina = (stamina + StaminaConfig.idleRegenRate * dt).clamp(
         0.0,
         maxStamina,
       );
+    }
+    if (stamina > 0 && _shieldBroken) {
+      _shieldBroken = false;
     }
     staminaNotifier.value = stamina;
   }
@@ -516,22 +533,26 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void setHorizontalInput(double input) {
-    if (_stunned) input = 0;
-    _lastInput = input;
+    if (input == 0) {
+      _movementInputs.clear();
+    } else {
+      _movementInputs
+        ..removeWhere((value) => value == -input)
+        ..add(input);
+    }
+    _applyHorizontalInput();
+  }
+
+  void _applyHorizontalInput() {
+    final input = _movementInputs.isEmpty ? 0.0 : _movementInputs.last;
+    _lastInput = _stunned ? 0 : input;
     _applySpeed();
   }
 
   void _updateMovementDirection() {
-    if (_keysPressed.isEmpty) {
-      setHorizontalInput(0);
-    } else {
-      final last = _keysPressed.last;
-      if (last == settings.rightKey) {
-        setHorizontalInput(1);
-      } else if (last == settings.leftKey) {
-        setHorizontalInput(-1);
-      }
-    }
+    final right = _keysPressed.contains(settings.rightKey);
+    final left = _keysPressed.contains(settings.leftKey);
+    setHorizontalInput(right == left ? 0 : (right ? 1 : -1));
   }
 
   void _doJump({bool isDouble = false}) {
@@ -658,6 +679,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         setRunning(true);
       } else if (event.logicalKey == settings.chestKey)
         game.openChest();
+      else if (event.logicalKey == settings.inventoryKey) {
+        inventoryOpen.value = !inventoryOpen.value;
+      } else if (inventoryOpen.value && event.logicalKey == settings.leftKey) {
+        inventoryPage.value = (inventoryPage.value - 1).clamp(0, 99);
+        _keysPressed.add(event.logicalKey);
+      } else if (inventoryOpen.value && event.logicalKey == settings.rightKey) {
+        inventoryPage.value = inventoryPage.value + 1;
+        _keysPressed.add(event.logicalKey);
+      }
       return true;
     } else if (event is KeyUpEvent) {
       if (event.logicalKey == settings.leftKey ||
@@ -873,6 +903,7 @@ class SlimeEnemy extends SpriteAnimationComponent
   bool _attacking = false;
   double _attackTimer = 0;
   double _attackCooldown = 0;
+  bool get isDead => _dead;
   double get attackCooldown => _attackCooldown;
   static const double attackCooldownMax = 7.0;
   SpriteAnimation? _rightAnimation;
@@ -945,8 +976,6 @@ class SlimeEnemy extends SpriteAnimationComponent
     add(RectangleHitbox());
   }
 
-
-
   @override
   void update(double dt) {
     super.update(dt);
@@ -956,7 +985,6 @@ class SlimeEnemy extends SpriteAnimationComponent
       if (_deathAnimTimer <= 0) {
         _respawnTimer -= dt;
         if (_respawnTimer <= 0) {
-          player._respawn();
           _dead = false;
           health = maxHealth;
           healthNotifier.value = health;
@@ -1037,27 +1065,27 @@ class SlimeEnemy extends SpriteAnimationComponent
   void render(Canvas canvas) {
     super.render(canvas);
     // Health bar
-    if (health < maxHealth) {
-    final barWidth = size.x * 0.45;
-    final barHeight = size.y * 0.03;
-    final barY = size.y * 0.04;
-    final barX = size.x * 0.48;
-    final bgRect = Rect.fromLTWH(
-      barX - barWidth / 2,
-      barY,
-      barWidth,
-      barHeight,
-    );
-    canvas.drawRect(bgRect, Paint()..color = const Color(0xAA000000));
-    canvas.drawRect(
-      Rect.fromLTWH(
+    if (!isDead && health < maxHealth) {
+      final barWidth = size.x * 0.45;
+      final barHeight = size.y * 0.03;
+      final barY = size.y * 0.04;
+      final barX = size.x * 0.48;
+      final bgRect = Rect.fromLTWH(
         barX - barWidth / 2,
         barY,
-        barWidth * (health / maxHealth),
+        barWidth,
         barHeight,
-      ),
-      Paint()..color = Colors.red,
-    );
+      );
+      canvas.drawRect(bgRect, Paint()..color = const Color(0xAA000000));
+      canvas.drawRect(
+        Rect.fromLTWH(
+          barX - barWidth / 2,
+          barY,
+          barWidth * (health / maxHealth),
+          barHeight,
+        ),
+        Paint()..color = Colors.red,
+      );
     }
   }
 }

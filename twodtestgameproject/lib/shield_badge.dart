@@ -8,7 +8,6 @@ class ShieldBadge extends PositionComponent with HasGameReference<NgocRongGame> 
   late final SpriteComponent _shieldIcon;
   late final Sprite _fullShield;
   late final Sprite _brokenShield;
-  late final TextComponent _text;
 
   ShieldBadge({required this.player}) : super(anchor: Anchor.center);
 
@@ -30,24 +29,8 @@ class ShieldBadge extends PositionComponent with HasGameReference<NgocRongGame> 
     );
     add(_shieldIcon);
 
-// Shield value text (black, centered inside the icon, slightly lower)
-    _text = TextComponent(
-      text: '',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 14,
-          color: Colors.black,
-        ),
-      ),
-      anchor: Anchor.center,
-      position: Vector2(0, iconSize * 0.25),
-    );
-    _text.paint = Paint()..color = const Color(0xFF000000);
-    add(_text);
-
     // Hide badge until player starts shielding
     _shieldIcon.opacity = 0;
-    _text.opacity = 0;
   }
 
   @override
@@ -55,20 +38,16 @@ class ShieldBadge extends PositionComponent with HasGameReference<NgocRongGame> 
     super.update(dt);
     position.setValues(
       player.position.x,
-      player.position.y - player.size.y * 0.6,
+      player.position.y - player.size.y * 0.5,
     );
     scale = Vector2.all(1);
 
-    // Show badge only while shielding
     final show = player.isShielding ? 1.0 : 0.0;
     _shieldIcon.opacity = show;
-    _text.opacity = show;
 
-    // Update shield value text
-    final shieldValue = player.shield.toInt();
-    _text.text = shieldValue.toString();
-
-    // Switch icon sprite based on shield value
-    _shieldIcon.sprite = player.shield <= 0 ? _brokenShield : _fullShield;
+    final isBroken = player.isShieldBroken || player.stamina <= 0;
+    _shieldIcon.sprite = isBroken ? _brokenShield : _fullShield;
+    final iconSize = player.size.x * (isBroken ? 0.4 : 0.45);
+    _shieldIcon.size = Vector2.all(iconSize);
   }
 }

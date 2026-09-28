@@ -2,6 +2,7 @@ class StaminaConfig {
   static const double maxStamina = 100.0;
   static const double idleRegenRate = 30.0;
   static const double activeRegenRate = 2.0;
+  static const double shieldRegenRate = 5.0;
   static const double regenDelay = 0.3;
 
   static const double attackCost = 20.0;
