@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 
 import 'game.dart';
 
-class ShieldBadge extends PositionComponent with HasGameReference<NgocRongGame> {
+class ShieldBadge extends PositionComponent
+    with HasGameReference<NgocRongGame> {
   final LocalPlayer player;
   late final SpriteComponent _shieldIcon;
   late final Sprite _fullShield;
@@ -42,10 +43,10 @@ class ShieldBadge extends PositionComponent with HasGameReference<NgocRongGame> 
     );
     scale = Vector2.all(1);
 
-    final show = player.isShielding ? 1.0 : 0.0;
+    final isBroken =
+        player.isShieldBroken || player.stamina <= 0 || player.isStunned;
+    final show = player.isShielding || isBroken ? 1.0 : 0.0;
     _shieldIcon.opacity = show;
-
-    final isBroken = player.isShieldBroken || player.stamina <= 0;
     _shieldIcon.sprite = isBroken ? _brokenShield : _fullShield;
     final iconSize = player.size.x * (isBroken ? 0.4 : 0.45);
     _shieldIcon.size = Vector2.all(iconSize);
