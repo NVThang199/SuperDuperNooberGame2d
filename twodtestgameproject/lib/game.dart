@@ -361,7 +361,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void damageShield(double dmg) {
     if (!_shielding || _stunned) return;
-    consumeStamina(30);
+    consumeStamina(dmg * 1.5);
     if (stamina <= 0) {
       _shieldBroken = true;
       _triggerStun();
@@ -509,7 +509,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         maxStamina,
       );
     }
-    if (stamina > 0 && _shieldBroken) {
+    if (_shieldBroken && stamina >= maxStamina * 0.5) {
       _shieldBroken = false;
     }
     staminaNotifier.value = stamina;
@@ -914,7 +914,7 @@ class SlimeEnemy extends SpriteAnimationComponent
   SlimeEnemy({required Vector2 position, required this.player})
     : super(
         position: position,
-        size: Vector2.all(112),
+        size: Vector2.all(224),
         anchor: Anchor.center,
         priority: 2,
       );
@@ -1006,7 +1006,9 @@ class SlimeEnemy extends SpriteAnimationComponent
       if (_attackTimer <= 0) {
         _attacking = false;
         animation = directionX > 0 ? _rightAnimation : _leftAnimation;
-        player.takeDamage(10);
+        if ((player.position - position).length < (size.x + player.size.x) * 0.35 * 2) {
+          player.takeDamage(30);
+        }
       }
       return;
     }
@@ -1019,7 +1021,7 @@ class SlimeEnemy extends SpriteAnimationComponent
 
     // Attack if close & cooldown over
     if (_attackCooldown <= 0 &&
-        (player.position - position).length < (size.x + player.size.x) * 0.35) {
+        (player.position - position).length < (size.x + player.size.x) * 0.35 * 2) {
       _attacking = true;
       _attackTimer = 0.9;
       _attackCooldown = 7.0;

@@ -7,6 +7,6 @@ class StaminaConfig {
 
   static const double attackCost = 20.0;
   static const double doubleJumpCost = 25.0;
-  static const double throwRockCost = 15.0;
+  static const double throwRockCost = 37.5;
   static const double runCostPerFrame = 0.8;
 }
