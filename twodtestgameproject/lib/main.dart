@@ -258,24 +258,31 @@ class _GameScreenState extends State<GameScreen> {
                  },
                ),
              ),
-             Positioned(
-               top: 12,
-               left: 204,
-               child: GestureDetector(
-                 onTap: () => game.player.inventoryOpen.value = true,
-                 child: Image.asset(
-                   'assets/images/ui/inventorybagicon.png',
-                   width: 96,
-                   height: 96,
-                 ),
-               ),
-             ),
-             Positioned(
-               top: 32,
-               right: 32,
-              child: Row(
-                children: [
-                  GestureDetector(
+              Positioned(
+                top: 12,
+                left: 204,
+                child: SizedBox(
+                  width: 96,
+                  height: 96,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => game.player.inventoryOpen.value = true,
+                    child: Image.asset(
+                      'assets/images/ui/inventorybagicon.png',
+                      width: 96,
+                      height: 96,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 12,
+                right: 32,
+                child: SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => setState(() => _showPauseMenu = !_showPauseMenu),
                     child: Transform.scale(
                       scale: 4.0,
@@ -285,74 +292,76 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  FutureBuilder<void>(
-                    future: game.loaded,
-                    builder: (ctx, snap) {
-                      if (snap.connectionState != ConnectionState.done) {
-                        return const SizedBox.shrink();
-                      }
-                      return StatefulBuilder(
-                        builder: (ctx2, setState) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            Future.delayed(const Duration(milliseconds: 100), () {
-                              if (mounted) setState(() {});
-                            });
+                ),
+              ),
+              Positioned(
+                bottom: 12,
+                right: 12,
+                child: FutureBuilder<void>(
+                  future: game.loaded,
+                  builder: (ctx, snap) {
+                    if (snap.connectionState != ConnectionState.done) {
+                      return const SizedBox.shrink();
+                    }
+                    return StatefulBuilder(
+                      builder: (ctx2, setState) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            if (mounted) setState(() {});
                           });
-                          if (game.currentMap != 1) {
-                            return const SizedBox.shrink();
-                          }
-                          final dist =
-                              (game.player.position - game.slime.position).length;
-                          final attackRange =
-                              (game.slime.size.x + game.player.size.x) * 0.6;
-                          if (dist > attackRange) {
-                            return const SizedBox.shrink();
-                          }
-                          final cd = game.slime.attackCooldown;
-                          final pct = (cd / 7.0).clamp(0.0, 1.0).toDouble();
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text(
-                                'Slime CD',
-                                style: TextStyle(color: Colors.white, fontSize: 12),
+                        });
+                        if (game.currentMap != 1) {
+                          return const SizedBox.shrink();
+                        }
+                        final dist =
+                            (game.player.position - game.slime.position).length;
+                        final attackRange =
+                            (game.slime.size.x + game.player.size.x) * 0.6;
+                        if (dist > attackRange) {
+                          return const SizedBox.shrink();
+                        }
+                        final cd = game.slime.attackCooldown;
+                        final pct = (cd / 7.0).clamp(0.0, 1.0).toDouble();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text(
+                              'Slime CD',
+                              style: TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                            Container(
+                              width: 120,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.white, width: 1),
+                                borderRadius: BorderRadius.circular(2),
                               ),
-                              Container(
-                                width: 120,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.white, width: 1),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      width: 120 * pct,
-                                      height: 16,
-                                      color: pct > 0.5 ? Colors.green : Colors.red,
-                                    ),
-                                    Center(
-                                      child: Text(
-                                        '${cd.toStringAsFixed(1)}s',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                        ),
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    width: 120 * pct,
+                                    height: 16,
+                                    color: pct > 0.5 ? Colors.green : Colors.red,
+                                  ),
+                                  Center(
+                                    child: Text(
+                                      '${cd.toStringAsFixed(1)}s',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ],
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
             ValueListenableBuilder<bool>(
               valueListenable: game.canOpenChest,
               builder: (ctx, canOpen, _) => canOpen
