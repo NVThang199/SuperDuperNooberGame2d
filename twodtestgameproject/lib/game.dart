@@ -12,6 +12,10 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'inventory.dart';
+import 'item_loader.dart';
+import 'inventory.dart';
+import 'item_loader.dart';
 
 import 'character_config.dart';
 import 'shield_badge.dart';
@@ -58,7 +62,7 @@ class RockProjectile extends SpriteComponent
     if (game.currentMap == 1 &&
         !slime._dead &&
         (position - slime.position).length < slime.size.x * 0.35) {
-      slime.takeDamage(10);
+    slime.takeDamage(10.0 + game.player.dmgBonus);
       removeFromParent();
       return;
     }
@@ -121,7 +125,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   SpriteAnimation? _hurtAnimation;
   double health = 100;
   double maxHealth = 100;
+  int dmgBonus = 0;
+  int defenseBonus = 0;
   final ValueNotifier<double> healthNotifier = ValueNotifier(100);
+  final ValueNotifier<double> maxHealthNotifier = ValueNotifier(100);
   double shield = 100;
   double maxShield = 100;
   final ValueNotifier<double> shieldNotifier = ValueNotifier(100);
@@ -158,6 +165,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   bool _staminaExhausted = false;
   final ValueNotifier<bool> inventoryOpen = ValueNotifier(false);
   final ValueNotifier<int> inventoryPage = ValueNotifier(0);
+  final InventoryState inventory = InventoryState();
+  List<InventoryItem> itemCatalog = [];
 
   bool _canUseStamina(double amount) => !_staminaExhausted && stamina >= amount;
 
@@ -278,7 +287,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     } else {
       _comboHit2 = true;
     }
-    slime.takeDamage(10);
+      slime.takeDamage(10.0 + game.player.dmgBonus);
   }
 
   void attack() {
@@ -744,7 +753,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       return;
     }
     _invincibilityTimer = 1.0;
-    health = (health - damage).clamp(0, maxHealth);
+    final actualDamage = (damage - defenseBonus).clamp(0, damage);
+    health = (health - actualDamage).clamp(0, maxHealth);
     healthNotifier.value = health;
     if (health <= 0) {
       _dead = true;
@@ -1010,11 +1020,15 @@ class NgocRongGame extends FlameGame
   late SlimeEnemy slime;
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
+  final InventoryState inventory = InventoryState();
+  List<InventoryItem> itemCatalog = [];
   
   NgocRongGame({required this.character});
 
   @override
   Future<void> onLoad() async {
+    itemCatalog = await ItemLoader.loadItems();
+    inventory.items.addAll(itemCatalog);
     final forest = await images.load('background/forest.png');
     background = SpriteComponent(
       sprite: Sprite(forest),

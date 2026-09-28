@@ -215,18 +215,21 @@ class _GameScreenState extends State<GameScreen> {
                   }
                   return ValueListenableBuilder<double>(
                     valueListenable: game.player.healthNotifier,
-                    builder: (ctx2, health, _) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        buildBar(health, game.player.maxHealth, Colors.red, 'assets/images/ui/HPbar.png', showText: true),
-                        ValueListenableBuilder<double>(
-                          valueListenable: game.player.staminaNotifier,
-                          builder: (ctx3, stamina, _) => Transform.translate(
-                            offset: const Offset(0, -8),
-                            child: buildBar(stamina, game.player.maxStamina, Colors.blue.shade700, 'assets/images/ui/HPbar.png'),
+                    builder: (ctx2, health, _) => ValueListenableBuilder<double>(
+                      valueListenable: game.player.maxHealthNotifier,
+                      builder: (ctx3, maxHealth, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildBar(health, maxHealth, Colors.red, 'assets/images/ui/HPbar.png', showText: true),
+                          ValueListenableBuilder<double>(
+                            valueListenable: game.player.staminaNotifier,
+                            builder: (ctx4, stamina, _) => Transform.translate(
+                              offset: const Offset(0, -8),
+                              child: buildBar(stamina, game.player.maxStamina, Colors.blue.shade700, 'assets/images/ui/HPbar.png', showText: true),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                  },
@@ -460,11 +463,34 @@ class _GameScreenState extends State<GameScreen> {
                   : ValueListenableBuilder<bool>(
                       valueListenable: game.player.inventoryOpen,
                       builder: (ctx2, open, _) => open
-                          ? InventoryWidget(
-                              inventory: InventoryState(),
-                              onClose: () =>
-                                  game.player.inventoryOpen.value = false,
-                            )
+                           ? InventoryWidget(
+                               inventory: game.inventory,
+                                onUseItem: (item) {
+                                  game.player.maxHealth += item.hpBonus;
+                                  game.player.maxStamina += item.staminaBonus;
+                                   game.player.dmgBonus += item.dmgBonus;
+                                   game.player.defenseBonus += item.defenseBonus;
+                                   game.player.maxHealthNotifier.value = game.player.maxHealth;
+                                  game.player.staminaNotifier.value = game.player.stamina;
+                                },
+                                onUnequipItem: (item) {
+                                  game.player.maxHealth -= item.hpBonus;
+                                  game.player.maxStamina -= item.staminaBonus;
+                                   game.player.dmgBonus -= item.dmgBonus;
+                                   game.player.defenseBonus -= item.defenseBonus;
+                                   game.player.health = game.player.health.clamp(0, game.player.maxHealth);
+                                  game.player.maxHealthNotifier.value = game.player.maxHealth;
+                                  game.player.healthNotifier.value = game.player.health;
+                                  game.player.stamina = game.player.stamina.clamp(0, game.player.maxStamina);
+                                  game.player.staminaNotifier.value = game.player.stamina;
+                                },
+                               onGiveAll: () => setState(() {
+                                 game.inventory.items.clear();
+                                 game.inventory.items.addAll(game.itemCatalog);
+                               }),
+                               onClose: () =>
+                                   game.player.inventoryOpen.value = false,
+                             )
                           : const SizedBox.shrink(),
                     ),
             ),

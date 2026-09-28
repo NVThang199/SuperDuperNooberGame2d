@@ -32,3 +32,5 @@ flutter:
     - assets/images/ui/
     - assets/images/ui/inventory/
     - assets/images/background/
+    - assets/item/
+    - assets/item/64x64/
