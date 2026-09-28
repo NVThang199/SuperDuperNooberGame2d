@@ -30,4 +30,5 @@ flutter:
     - assets/images/environment/
     - assets/images/action/
     - assets/images/ui/
+    - assets/images/ui/inventory/
     - assets/images/background/

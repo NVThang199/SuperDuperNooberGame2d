@@ -11,6 +11,7 @@ import 'overlay_layout.dart';
 import 'overlay_editor.dart';
 import 'game.dart';
 import 'settings_page.dart';
+import 'inventory.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -175,8 +176,10 @@ class _GameScreenState extends State<GameScreen> {
                       if (game.currentMap != 1) {
                         return const SizedBox.shrink();
                       }
-                      final dist = (game.player.position - game.slime.position).length;
-                      final attackRange = (game.slime.size.x + game.player.size.x) * 0.6;
+                      final dist =
+                          (game.player.position - game.slime.position).length;
+                      final attackRange =
+                          (game.slime.size.x + game.player.size.x) * 0.6;
                       if (dist > attackRange) {
                         return const SizedBox.shrink();
                       }
@@ -279,6 +282,22 @@ class _GameScreenState extends State<GameScreen> {
                 ],
               ),
             ),
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Row(
+                children: [
+                  const Text('Túi', style: TextStyle(color: Colors.white)),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.backpack, color: Colors.amber),
+                    onPressed: () => game.player.inventoryOpen.value = true,
+                  ),
+                ],
+              ),
+            ),
             if (game.settings.showMobileControls) ...[
               _btn(
                 size,
@@ -354,6 +373,22 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             ],
+            FutureBuilder<void>(
+              future: game.loaded,
+              builder: (ctx, snap) =>
+                  snap.connectionState != ConnectionState.done
+                  ? const SizedBox.shrink()
+                  : ValueListenableBuilder<bool>(
+                      valueListenable: game.player.inventoryOpen,
+                      builder: (ctx2, open, _) => open
+                          ? InventoryWidget(
+                              inventory: InventoryState(),
+                              onClose: () =>
+                                  game.player.inventoryOpen.value = false,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+            ),
           ],
         ),
       ),

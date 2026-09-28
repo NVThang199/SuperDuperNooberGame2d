@@ -58,6 +58,10 @@ class _SettingsPageState extends State<SettingsPage> {
       'Khiên': [_s.shieldKey, (LogicalKeyboardKey k) => _s.shieldKey = k],
       'Chạy': [_s.runKey, (LogicalKeyboardKey k) => _s.runKey = k],
       'Mở rương': [_s.chestKey, (LogicalKeyboardKey k) => _s.chestKey = k],
+      'Túi đồ': [
+        _s.inventoryKey,
+        (LogicalKeyboardKey k) => _s.inventoryKey = k,
+      ],
     };
 
     return Container(

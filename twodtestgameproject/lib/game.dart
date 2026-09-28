@@ -26,6 +26,7 @@ class GameSettings {
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
   LogicalKeyboardKey runKey = LogicalKeyboardKey.shiftLeft;
   LogicalKeyboardKey chestKey = LogicalKeyboardKey.keyR;
+  LogicalKeyboardKey inventoryKey = LogicalKeyboardKey.keyI;
   bool showMobileControls =
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -155,6 +156,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   );
   double _staminaRegenDelay = 0;
   bool _staminaExhausted = false;
+  final ValueNotifier<bool> inventoryOpen = ValueNotifier(false);
+  final ValueNotifier<int> inventoryPage = ValueNotifier(0);
 
   bool _canUseStamina(double amount) => !_staminaExhausted && stamina >= amount;
 
@@ -676,6 +679,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         setRunning(true);
       } else if (event.logicalKey == settings.chestKey)
         game.openChest();
+      else if (event.logicalKey == settings.inventoryKey) {
+        inventoryOpen.value = !inventoryOpen.value;
+      } else if (inventoryOpen.value && event.logicalKey == settings.leftKey) {
+        inventoryPage.value = (inventoryPage.value - 1).clamp(0, 99);
+        _keysPressed.add(event.logicalKey);
+      } else if (inventoryOpen.value && event.logicalKey == settings.rightKey) {
+        inventoryPage.value = inventoryPage.value + 1;
+        _keysPressed.add(event.logicalKey);
+      }
       return true;
     } else if (event is KeyUpEvent) {
       if (event.logicalKey == settings.leftKey ||
@@ -963,8 +975,6 @@ class SlimeEnemy extends SpriteAnimationComponent
     }
     add(RectangleHitbox());
   }
-
-
 
   @override
   void update(double dt) {
