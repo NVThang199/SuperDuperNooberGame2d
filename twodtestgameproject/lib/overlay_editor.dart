@@ -247,14 +247,4 @@ class _OverlayEditorPageState extends State<OverlayEditorPage> {
     OverlayButtonId.attack => Icons.local_fire_department,
     OverlayButtonId.jump => Icons.keyboard_arrow_up,
   };
-
-  static String _labelOf(OverlayButtonId id) => switch (id) {
-    OverlayButtonId.moveLeft => 'TRÁI',
-    OverlayButtonId.moveRight => 'PHẢI',
-    OverlayButtonId.shield => 'KHIÊN',
-    OverlayButtonId.run => 'CHẠY',
-    OverlayButtonId.throwRock => 'NÉM ĐÁ',
-    OverlayButtonId.attack => 'TẤN CÔNG',
-    OverlayButtonId.jump => 'NHẢY',
-  };
 }

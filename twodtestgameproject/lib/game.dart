@@ -175,166 +175,63 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
          priority: 5,
        );
 
+  SpriteAnimation _loadAnim(
+    String path,
+    int amount,
+    double stepTime,
+    Vector2 size, {
+    bool loop = true,
+  }) => SpriteAnimation.fromFrameData(
+    game.images.fromCache(path),
+    SpriteAnimationData.sequenced(
+      amount: amount,
+      stepTime: stepTime,
+      textureSize: size,
+      loop: loop,
+    ),
+  );
+
   @override
   Future<void> onLoad() async {
-    final idleSheet = await game.images.load(character.idlePath);
-    final walkSheet = await game.images.load(character.walkPath);
-    final runSheet = await game.images.load(character.runPath);
-    final walkRunPushDustSheet = await game.images.load(
-      character.walkRunPushDustPath,
-    );
-    final walkAttackSheet = await game.images.load(character.walkAttackPath);
-    final attack1Sheet = await game.images.load(character.attack1Path);
-    final attack2Sheet = await game.images.load(character.attack2Path);
-    final jumpSheet = await game.images.load(character.jumpPath);
-    final pushSheet = await game.images.load(character.pushPath);
-    final dustSheet = await game.images.load(character.doubleJumpDustPath);
-    final throwSheet = await game.images.load(character.throwPath);
-    final deathSheet = await game.images.load(character.deathPath);
-    _deathAnimation = SpriteAnimation.fromFrameData(
-      deathSheet,
-      SpriteAnimationData.sequenced(
-        amount: character.deathAmount,
-        stepTime: character.deathStepTime,
-        textureSize: character.textureSize,
-        loop: false,
-      ),
-    );
-    final hurtSheet = await game.images.load(character.hurtPath);
-    _hurtAnimation = SpriteAnimation.fromFrameData(
-      hurtSheet,
-      SpriteAnimationData.sequenced(
-        amount: character.hurtAmount,
-        stepTime: character.hurtStepTime,
-        textureSize: character.textureSize,
-        loop: false,
-      ),
-    );
+    final paths = [
+      character.idlePath, character.walkPath, character.runPath,
+      character.walkRunPushDustPath, character.walkAttackPath,
+      character.attack1Path, character.attack2Path, character.jumpPath,
+      character.pushPath, character.doubleJumpDustPath,
+      character.throwPath, character.deathPath, character.hurtPath,
+    ];
+    await game.images.loadAll(paths);
+
+    _deathAnimation = _loadAnim(character.deathPath, character.deathAmount, character.deathStepTime, character.textureSize, loop: false);
+    _hurtAnimation = _loadAnim(character.hurtPath, character.hurtAmount, character.hurtStepTime, character.textureSize, loop: false);
     final rockImage = await game.images.load('${character.basePath}/Rock1.png');
     _rockSprite = Sprite(rockImage);
-    final throwAnim = SpriteAnimation.fromFrameData(
-      throwSheet,
-      SpriteAnimationData.sequenced(
-        amount: character.throwAmount,
-        stepTime: character.throwStepTime,
-        textureSize: character.textureSize,
-        loop: false,
-      ),
-    );
-    _throwAnimation = throwAnim;
-
-    _dustAnimation = SpriteAnimation.fromFrameData(
-      dustSheet,
-      SpriteAnimationData.sequenced(
-        amount: character.doubleJumpDustAmount,
-        stepTime: character.doubleJumpDustStepTime,
-        textureSize: character.textureSize,
-        loop: false,
-      ),
-    );
-    _walkRunPushDustAnimation = SpriteAnimation.fromFrameData(
-      walkRunPushDustSheet,
-      SpriteAnimationData.sequenced(
-        amount: character.walkRunPushDustAmount,
-        stepTime: character.walkRunPushDustStepTime,
-        textureSize: character.textureSize,
-        loop: false,
-      ),
-    );
+    _throwAnimation = _loadAnim(character.throwPath, character.throwAmount, character.throwStepTime, character.textureSize, loop: false);
+    _dustAnimation = _loadAnim(character.doubleJumpDustPath, character.doubleJumpDustAmount, character.doubleJumpDustStepTime, character.textureSize, loop: false);
+    _walkRunPushDustAnimation = _loadAnim(character.walkRunPushDustPath, character.walkRunPushDustAmount, character.walkRunPushDustStepTime, character.textureSize, loop: false);
 
     animations = {
-      'idle': SpriteAnimation.fromFrameData(
-        idleSheet,
-        SpriteAnimationData.sequenced(
-          amount: character.idleAmount,
-          stepTime: character.idleStepTime,
-          textureSize: character.textureSize,
-        ),
-      ),
-      'walk': SpriteAnimation.fromFrameData(
-        walkSheet,
-        SpriteAnimationData.sequenced(
-          amount: character.walkAmount,
-          stepTime: character.walkStepTime,
-          textureSize: character.textureSize,
-        ),
-      ),
-      'run': SpriteAnimation.fromFrameData(
-        runSheet,
-        SpriteAnimationData.sequenced(
-          amount: character.runAmount,
-          stepTime: character.runStepTime,
-          textureSize: character.textureSize,
-        ),
-      ),
+      'idle': _loadAnim(character.idlePath, character.idleAmount, character.idleStepTime, character.textureSize),
+      'walk': _loadAnim(character.walkPath, character.walkAmount, character.walkStepTime, character.textureSize),
+      'run': _loadAnim(character.runPath, character.runAmount, character.runStepTime, character.textureSize),
       'throw': _throwAnimation!,
       'death': _deathAnimation!,
       'hurt': _hurtAnimation!,
-      'walkAttack': SpriteAnimation.fromFrameData(
-        walkAttackSheet,
-        SpriteAnimationData.sequenced(
-          amount: character.walkAttackAmount,
-          stepTime: character.walkAttackStepTime,
-          textureSize: character.textureSize,
-          loop: true,
-        ),
-      ),
-      'attack1': SpriteAnimation.fromFrameData(
-        attack1Sheet,
-        SpriteAnimationData.sequenced(
-          amount: character.attack1Amount,
-          stepTime: character.attack1StepTime,
-          textureSize: character.textureSize,
-          loop: false,
-        ),
-      ),
-      'attack2': SpriteAnimation.fromFrameData(
-        attack2Sheet,
-        SpriteAnimationData.sequenced(
-          amount: character.attack2Amount,
-          stepTime: character.attack2StepTime,
-          textureSize: character.textureSize,
-          loop: false,
-        ),
-      ),
-      'jump': SpriteAnimation.fromFrameData(
-        jumpSheet,
-        SpriteAnimationData.sequenced(
-          amount: character.jumpAmount,
-          stepTime: character.jumpStepTime,
-          textureSize: character.textureSize,
-          loop: false,
-        ),
-      ),
-      'doubleJump': SpriteAnimation.fromFrameData(
-        jumpSheet,
-        SpriteAnimationData.sequenced(
-          amount: character.jumpAmount,
-          stepTime: character.jumpStepTime,
-          textureSize: character.textureSize,
-          loop: false,
-        ),
-      ),
-      'push': SpriteAnimation.fromFrameData(
-        pushSheet,
-        SpriteAnimationData.sequenced(
-          amount: character.pushAmount,
-          stepTime: character.pushStepTime,
-          textureSize: character.textureSize,
-          loop: false,
-        ),
-      ),
+      'walkAttack': _loadAnim(character.walkAttackPath, character.walkAttackAmount, character.walkAttackStepTime, character.textureSize),
+      'attack1': _loadAnim(character.attack1Path, character.attack1Amount, character.attack1StepTime, character.textureSize, loop: false),
+      'attack2': _loadAnim(character.attack2Path, character.attack2Amount, character.attack2StepTime, character.textureSize, loop: false),
+      'jump': _loadAnim(character.jumpPath, character.jumpAmount, character.jumpStepTime, character.textureSize, loop: false),
+      'doubleJump': _loadAnim(character.jumpPath, character.jumpAmount, character.jumpStepTime, character.textureSize, loop: false),
+      'push': _loadAnim(character.pushPath, character.pushAmount, character.pushStepTime, character.textureSize, loop: false),
       'stun': SpriteAnimation.fromFrameData(
-        deathSheet,
+        game.images.fromCache(character.deathPath),
         SpriteAnimationData.sequenced(
-          amount: 1,
-          stepTime: 1,
-          textureSize: character.textureSize,
-          texturePosition: Vector2(character.textureSize.x, 0),
-          loop: false,
+          amount: 1, stepTime: 1, textureSize: character.textureSize,
+          texturePosition: Vector2(character.textureSize.x, 0), loop: false,
         ),
       ),
     };
+
     current = 'idle';
     add(RectangleHitbox());
     _shieldBadge = ShieldBadge(player: this);
@@ -433,7 +330,6 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     _throwTimer = character.throwAmount * character.throwStepTime;
     _throwSpawnDelay = _throwTimer * 0.70;
     _throwSpawned = false;
-    _targetVx = 0;
     current = 'throw';
   }
 
@@ -630,6 +526,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   @override
   void onPointerDown(PointerDownEvent event) {
+    if (game.isPaused.value) return;
     if (!settings.mouseControl) return;
     if ((event.buttons & (1 << 0)) != 0) {
       attack();
@@ -641,6 +538,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   @override
   void onPointerUp(PointerUpEvent event) {
+    if (game.isPaused.value) return;
     if (!settings.mouseControl) return;
     if ((event.buttons & (1 << 1)) == 0) {
       setShielding(false);
@@ -650,6 +548,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    if (game.isPaused.value) return false;
     _keysPressed
       ..removeWhere(
         (key) => key == settings.leftKey || key == settings.rightKey,
@@ -1092,22 +991,6 @@ class SlimeEnemy extends SpriteAnimationComponent
   }
 }
 
-class RemotePlayer extends PositionComponent {
-  RemotePlayer({required Vector2 position})
-    : super(position: position, size: Vector2(32, 48), anchor: Anchor.center);
-
-  @override
-  void render(Canvas canvas) {
-    final paint = Paint()..color = Colors.blueGrey;
-    canvas.drawRect(size.toRect(), paint);
-  }
-
-  void updatePosition(double targetX, double targetY, double dt) {
-    position.x += (targetX - position.x) * 10 * dt;
-    position.y += (targetY - position.y) * 10 * dt;
-  }
-}
-
 class NgocRongGame extends FlameGame
     with HasCollisionDetection, HasKeyboardHandlerComponents {
   static final Random _shakeRandom = Random();
@@ -1119,15 +1002,15 @@ class NgocRongGame extends FlameGame
   late SpriteComponent chest;
   late SpriteAnimationComponent fire;
   late Sprite chestOpenSprite;
-  RectangleComponent? ground;
   GameSettings settings = GameSettings();
   final CharacterConfig character;
   final ValueNotifier<bool> canOpenChest = ValueNotifier(false);
   final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
   int currentMap = 0;
-  bool chestOpen = false;
   late SlimeEnemy slime;
 
+  final ValueNotifier<bool> isPaused = ValueNotifier(false);
+  
   NgocRongGame({required this.character});
 
   @override
@@ -1183,8 +1066,6 @@ class NgocRongGame extends FlameGame
       priority: 0,
     );
 
-    ground = null;
-
     final playerSize = size.y * 0.2;
     final groundHeight = size.y * 0.1;
     player = LocalPlayer(
@@ -1205,9 +1086,8 @@ class NgocRongGame extends FlameGame
 
   void openChest() {
     if (!canOpenChest.value) return;
-    chestOpen = !chestOpen;
-    chestOpenState.value = chestOpen;
-    if (chestOpen) {
+    chestOpenState.value = !chestOpenState.value;
+    if (chestOpenState.value) {
       chest.sprite = chestOpenSprite;
     } else {
       chest.sprite = Sprite(
@@ -1241,7 +1121,6 @@ class NgocRongGame extends FlameGame
       slime.removeFromParent();
       add(chest);
       add(fire);
-      chestOpenState.value = chestOpen;
       player.position.x = size.x * 0.9;
     }
 

@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import 'character_config.dart';
 import 'main.dart';
 
+final List<CharacterConfig> allCharacters = [
+  dudeConfig,
+  owletConfig,
+  pinkConfig,
+];
+
 class CharacterSelection extends StatelessWidget {
   const CharacterSelection({super.key});
 
