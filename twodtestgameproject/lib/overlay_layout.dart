@@ -8,7 +8,6 @@ enum OverlayButtonId {
   moveRight,
   shield,
   run,
-  throwRock,
   attack,
   jump,
 }
@@ -61,15 +60,11 @@ class OverlayLayout {
       anchor: Offset(0.73, 0.70),
       scale: 0.8,
     ),
-    OverlayButtonId.run: const OverlayButtonConfig(
-      anchor: Offset(0.84, 0.70),
-      scale: 0.8,
-    ),
-    OverlayButtonId.throwRock: const OverlayButtonConfig(
-      anchor: Offset(0.95, 0.70),
-      scale: 0.8,
-    ),
-    OverlayButtonId.jump: const OverlayButtonConfig(
+      OverlayButtonId.run: const OverlayButtonConfig(
+        anchor: Offset(0.84, 0.70),
+        scale: 0.8,
+      ),
+      OverlayButtonId.jump: const OverlayButtonConfig(
       anchor: Offset(0.79, 0.88),
       scale: 0.8,
     ),

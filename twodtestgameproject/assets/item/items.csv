@@ -12,7 +12,7 @@ id,name,imagePath,rarity,type,hpBonus,mpBonus,staminaBonus,dmgBonus,defenseBonus
 11,bracer test,assets/item/64x64/fc2192.png,legendary,bracer,99,0,99,99,99,placeholdertextabc133
 12,necklace test,assets/item/64x64/fc2181.png,legendary,necklace,99,0,99,99,99,placeholdertextabc134
 13,cape test,assets/item/64x64/fc2071.png,legendary,cape,99,0,99,99,99,placeholdertextabc135
-14,placeholder1,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc136
+14,cung test,assets/item/64x64/fc1699.png,legendary,bow,99,0,99,99,99,placeholdertextabc136
 15,placeholder2,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc137
 16,placeholder3,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc138
 17,placeholder4,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc139

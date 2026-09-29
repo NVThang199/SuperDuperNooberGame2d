@@ -303,7 +303,7 @@ class BossEnemy extends PositionComponent {
   }
 
   void _dealAttackDamage() {
-    const dmg = 60.0;
+    const dmg = DamageConfig.bossAttackDamage;
     const range = 120.0;
     if ((player.position - position).length < range) {
       player.takeDamage(dmg);
@@ -312,7 +312,7 @@ class BossEnemy extends PositionComponent {
   }
 
   void _dealSkillDamage() {
-    const dmg = 120.0;
+    const dmg = DamageConfig.bossSkillDamage;
     const range = 120.0;
     if ((player.position - position).length < range) {
       player.takeDamage(dmg);
@@ -464,7 +464,7 @@ class BossMinion extends PositionComponent {
     }
 
     if ((player.position - position).length < frameSize * 1.2) {
-      player.takeDamage(5);
+      player.takeDamage(DamageConfig.bossMinionDamage);
       if (kDebugMode) print('Minion attacked player: -5 HP');
     }
   }

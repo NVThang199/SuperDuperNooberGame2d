@@ -12,6 +12,7 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+
 import 'inventory.dart';
 import 'item_loader.dart';
 import 'inventory.dart';
@@ -22,64 +23,31 @@ import 'shield_badge.dart';
 import 'stamina_config.dart';
 import 'boss.dart';
 
+class DamageConfig {
+  static const double swordBaseDamage = 20.0;
+  static const double bowBaseDamage = 18.0;
+  static const double noneBaseDamage = 10.0;
+  static const double slimeBaseDamage = 30.0;
+  static const double bossAttackDamage = 60.0;
+  static const double bossSkillDamage = 120.0;
+  static const double bossMinionDamage = 5.0;
+}
+
 class GameSettings {
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
   LogicalKeyboardKey rightKey = LogicalKeyboardKey.arrowRight;
   LogicalKeyboardKey jumpKey = LogicalKeyboardKey.space;
   LogicalKeyboardKey attackKey = LogicalKeyboardKey.keyZ;
-  LogicalKeyboardKey throwKey = LogicalKeyboardKey.keyC;
   LogicalKeyboardKey shieldKey = LogicalKeyboardKey.keyX;
   LogicalKeyboardKey runKey = LogicalKeyboardKey.shiftLeft;
   LogicalKeyboardKey chestKey = LogicalKeyboardKey.keyR;
   LogicalKeyboardKey inventoryKey = LogicalKeyboardKey.keyI;
+  LogicalKeyboardKey squatKey = LogicalKeyboardKey.arrowDown;
   bool showMobileControls =
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
   bool mouseControl = true;
-}
-
-class RockProjectile extends SpriteComponent
-    with HasGameReference<NgocRongGame> {
-  final double vx;
-  RockProjectile({
-    required Vector2 position,
-    required Sprite sprite,
-    required this.vx,
-    required Vector2 size,
-  }) : super(
-         position: position,
-         sprite: sprite,
-         size: size,
-         anchor: Anchor.center,
-         priority: 5,
-       );
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    position.x += vx * dt;
-    final slime = game.slime;
-    if (game.currentMap == 1 &&
-        !slime._dead &&
-        (position - slime.position).length < slime.size.x * 0.35) {
-    slime.takeDamage(10.0 + game.player.dmgBonus);
-      removeFromParent();
-      return;
-    }
-    if (game.currentMap == 2) {
-      final boss = game.boss;
-      if (!boss.dead &&
-          (position - boss.position).length < BossEnemy.frameSize * 1.2) {
-        boss.takeDamage(10);
-        removeFromParent();
-        return;
-      }
-    }
-    if (position.x < -100 || position.x > game.size.x + 100) {
-      removeFromParent();
-    }
-  }
 }
 
 class DoubleJumpDust extends SpriteAnimationComponent
@@ -100,6 +68,45 @@ class DoubleJumpDust extends SpriteAnimationComponent
   void update(double dt) {
     super.update(dt);
     if (animationTicker?.done() ?? false) removeFromParent();
+  }
+}
+
+class ArrowProjectile extends SpriteComponent
+    with HasGameReference<NgocRongGame> {
+  final double vx;
+  final double damage;
+
+  ArrowProjectile({
+    required Vector2 position,
+    required Sprite sprite,
+    required this.vx,
+    required this.damage,
+    required Vector2 size,
+  }) : super(
+         position: position,
+         sprite: sprite,
+         size: size,
+         anchor: Anchor.center,
+         priority: 5,
+       );
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    position.x += vx * dt;
+    if (game.currentMap == 1 &&
+        !game.slime._dead &&
+        (position - game.slime.position).length < game.slime.size.x * 0.35) {
+      game.slime.takeDamage(damage);
+      removeFromParent();
+    } else if (game.currentMap == 2 &&
+        !game.boss.dead &&
+        (position - game.boss.position).length < BossEnemy.frameSize * 1.2) {
+      game.boss.takeDamage(damage);
+      removeFromParent();
+    } else if (position.x < -100 || position.x > game.size.x + 100) {
+      removeFromParent();
+    }
   }
 }
 
@@ -130,9 +137,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   bool _shieldBroken = false;
   SpriteAnimation? _dustAnimation;
   SpriteAnimation? _walkRunPushDustAnimation;
-  SpriteAnimation? _throwAnimation;
   SpriteAnimation? _deathAnimation;
   SpriteAnimation? _hurtAnimation;
+  Map<String, SpriteAnimation>? _baseAnimations;
   double health = 100;
   double maxHealth = 100;
   int dmgBonus = 0;
@@ -147,13 +154,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   bool get isStunned => _stunned;
   bool get isShielding => _shielding;
   bool get isShieldBroken => _shieldBroken;
-  Sprite? _rockSprite;
   late ShieldBadge _shieldBadge;
   double _runDustTimer = 0;
-  bool _throwing = false;
-  double _throwTimer = 0;
-  double _throwSpawnDelay = 0;
-  bool _throwSpawned = false;
+  bool _squatting = false;
 
   int _comboStep = 0;
   bool _comboHit1 = false;
@@ -176,12 +179,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   bool _staminaExhausted = false;
   final ValueNotifier<bool> inventoryOpen = ValueNotifier(false);
   final ValueNotifier<int> inventoryPage = ValueNotifier(0);
+  final ValueNotifier<int> weaponTypeVersion = ValueNotifier(0);
   final InventoryState inventory = InventoryState();
   List<InventoryItem> itemCatalog = [];
 
   bool _canUseStamina(double amount) => !_staminaExhausted && stamina >= amount;
 
   bool get _hasRecoveredStamina => stamina >= maxStamina * 0.5;
+  double get baseDamage => _getWeaponBaseDamage();
 
   LocalPlayer({
     required Vector2 position,
@@ -211,55 +216,255 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     ),
   );
 
+  Future<SpriteAnimation> _loadWeaponSheet(
+    String file,
+    int frames, {
+    bool loop = true,
+    double stepTime = 0.1,
+  }) async {
+    final kind = game.inventory.weaponType;
+    final folder = kind == 'sword' ? 'sword' : 'bow';
+    final actualPath = 'characters/${character.id}_monster_$folder/$file';
+    final image = await game.images.load(actualPath);
+    return SpriteAnimation.fromFrameData(
+      image,
+      SpriteAnimationData.sequenced(
+        amount: frames,
+        stepTime: stepTime,
+        textureSize: Vector2.all(42),
+        loop: loop,
+      ),
+    );
+  }
+
+  Future<void> _loadAnimations() async {
+    final kind = game.inventory.weaponType;
+    if (kind == 'none') {
+      animations = _baseAnimations;
+      current = 'idle';
+      size = Vector2.all(game.size.y * 0.2); // Restore base size
+      return;
+    }
+    final isSword = kind == 'sword';
+    final jump = await _loadWeaponSheet('Jump.png', 8, loop: false);
+    final attack1 = await _loadWeaponSheet(
+      isSword ? 'Attack1.png' : 'Attack.png',
+      6,
+      loop: false,
+    );
+    final walkAttack = await _loadWeaponSheet(
+      isSword ? 'WalkAttack1.png' : 'WalkAttack.png',
+      6,
+      loop: false,
+    );
+    final runAttack1 = await _loadWeaponSheet(
+      isSword ? 'RunAttack1.png' : 'RunAttack.png',
+      6,
+      loop: false,
+    );
+    final squat = await _loadWeaponSheet(
+      isSword || character.id != 'dude' ? 'Squat.png' : 'Squad.png',
+      4,
+    );
+
+    final newAnimations = <String, SpriteAnimation>{
+      'idle': await _loadWeaponSheet('Idle.png', 4),
+      'walk': await _loadWeaponSheet('Walk.png', 6),
+      'run': await _loadWeaponSheet('Run.png', 6),
+      'walkAttack': walkAttack,
+      'attack1': attack1,
+      'jump': jump,
+      'doubleJump': jump,
+      'jumpAttack': await _loadWeaponSheet('JumpAttack.png', 6, loop: false),
+      'fallAttack': await _loadWeaponSheet('FallAttack.png', 6, loop: false),
+      'runAttack1': runAttack1,
+      'squat': squat,
+      'death': await _loadWeaponSheet('Death.png', 8, loop: false),
+      'hurt': await _loadWeaponSheet('Hurt.png', 4, loop: false),
+    };
+    if (isSword) {
+      newAnimations['attack2'] = await _loadWeaponSheet(
+        'Attack2.png',
+        6,
+        loop: false,
+      );
+      newAnimations['runAttack2'] = await _loadWeaponSheet(
+        'RunAttack2.png',
+        6,
+        loop: false,
+      );
+      newAnimations['squatAttack'] = await _loadWeaponSheet(
+        'SquatAttack.png',
+        6,
+        loop: false,
+      );
+    }
+
+    // Xóa group cũ, thay mới hoàn toàn để không dùng sprite nhân vật gốc
+    animations = newAnimations;
+    current = 'idle';
+  }
+
   @override
   Future<void> onLoad() async {
     final paths = [
-      character.idlePath, character.walkPath, character.runPath,
-      character.walkRunPushDustPath, character.walkAttackPath,
-      character.attack1Path, character.attack2Path, character.jumpPath,
-      character.pushPath, character.doubleJumpDustPath,
-      character.throwPath, character.deathPath, character.hurtPath,
+      character.idlePath,
+      character.walkPath,
+      character.runPath,
+      character.walkRunPushDustPath,
+      character.walkAttackPath,
+      character.attack1Path,
+      character.attack2Path,
+      character.jumpPath,
+      character.pushPath,
+      character.doubleJumpDustPath,
+      character.deathPath,
+      character.hurtPath,
     ];
     await game.images.loadAll(paths);
 
-    _deathAnimation = _loadAnim(character.deathPath, character.deathAmount, character.deathStepTime, character.textureSize, loop: false);
-    _hurtAnimation = _loadAnim(character.hurtPath, character.hurtAmount, character.hurtStepTime, character.textureSize, loop: false);
-    final rockImage = await game.images.load('${character.basePath}/Rock1.png');
-    _rockSprite = Sprite(rockImage);
-    _throwAnimation = _loadAnim(character.throwPath, character.throwAmount, character.throwStepTime, character.textureSize, loop: false);
-    _dustAnimation = _loadAnim(character.doubleJumpDustPath, character.doubleJumpDustAmount, character.doubleJumpDustStepTime, character.textureSize, loop: false);
-    _walkRunPushDustAnimation = _loadAnim(character.walkRunPushDustPath, character.walkRunPushDustAmount, character.walkRunPushDustStepTime, character.textureSize, loop: false);
+    _deathAnimation = _loadAnim(
+      character.deathPath,
+      character.deathAmount,
+      character.deathStepTime,
+      character.textureSize,
+      loop: false,
+    );
+    _hurtAnimation = _loadAnim(
+      character.hurtPath,
+      character.hurtAmount,
+      character.hurtStepTime,
+      character.textureSize,
+      loop: false,
+    );
+    _dustAnimation = _loadAnim(
+      character.doubleJumpDustPath,
+      character.doubleJumpDustAmount,
+      character.doubleJumpDustStepTime,
+      character.textureSize,
+      loop: false,
+    );
+    _walkRunPushDustAnimation = _loadAnim(
+      character.walkRunPushDustPath,
+      character.walkRunPushDustAmount,
+      character.walkRunPushDustStepTime,
+      character.textureSize,
+      loop: false,
+    );
 
     animations = {
-      'idle': _loadAnim(character.idlePath, character.idleAmount, character.idleStepTime, character.textureSize),
-      'walk': _loadAnim(character.walkPath, character.walkAmount, character.walkStepTime, character.textureSize),
-      'run': _loadAnim(character.runPath, character.runAmount, character.runStepTime, character.textureSize),
-      'throw': _throwAnimation!,
+      'idle': _loadAnim(
+        character.idlePath,
+        character.idleAmount,
+        character.idleStepTime,
+        character.textureSize,
+      ),
+      'walk': _loadAnim(
+        character.walkPath,
+        character.walkAmount,
+        character.walkStepTime,
+        character.textureSize,
+      ),
+      'run': _loadAnim(
+        character.runPath,
+        character.runAmount,
+        character.runStepTime,
+        character.textureSize,
+      ),
       'death': _deathAnimation!,
       'hurt': _hurtAnimation!,
-      'walkAttack': _loadAnim(character.walkAttackPath, character.walkAttackAmount, character.walkAttackStepTime, character.textureSize),
-      'attack1': _loadAnim(character.attack1Path, character.attack1Amount, character.attack1StepTime, character.textureSize, loop: false),
-      'attack2': _loadAnim(character.attack2Path, character.attack2Amount, character.attack2StepTime, character.textureSize, loop: false),
-      'jump': _loadAnim(character.jumpPath, character.jumpAmount, character.jumpStepTime, character.textureSize, loop: false),
-      'doubleJump': _loadAnim(character.jumpPath, character.jumpAmount, character.jumpStepTime, character.textureSize, loop: false),
-      'push': _loadAnim(character.pushPath, character.pushAmount, character.pushStepTime, character.textureSize, loop: false),
+      'walkAttack': _loadAnim(
+        character.walkAttackPath,
+        character.walkAttackAmount,
+        character.walkAttackStepTime,
+        character.textureSize,
+      ),
+      'attack1': _loadAnim(
+        character.attack1Path,
+        character.attack1Amount,
+        character.attack1StepTime,
+        character.textureSize,
+        loop: false,
+      ),
+      'attack2': _loadAnim(
+        character.attack2Path,
+        character.attack2Amount,
+        character.attack2StepTime,
+        character.textureSize,
+        loop: false,
+      ),
+      'jump': _loadAnim(
+        character.jumpPath,
+        character.jumpAmount,
+        character.jumpStepTime,
+        character.textureSize,
+        loop: false,
+      ),
+      'doubleJump': _loadAnim(
+        character.jumpPath,
+        character.jumpAmount,
+        character.jumpStepTime,
+        character.textureSize,
+        loop: false,
+      ),
+      'push': _loadAnim(
+        character.pushPath,
+        character.pushAmount,
+        character.pushStepTime,
+        character.textureSize,
+        loop: false,
+      ),
       'stun': SpriteAnimation.fromFrameData(
         game.images.fromCache(character.deathPath),
         SpriteAnimationData.sequenced(
-          amount: 1, stepTime: 1, textureSize: character.textureSize,
-          texturePosition: Vector2(character.textureSize.x, 0), loop: false,
+          amount: 1,
+          stepTime: 1,
+          textureSize: character.textureSize,
+          texturePosition: Vector2(character.textureSize.x, 0),
+          loop: false,
         ),
       ),
     };
 
+    _baseAnimations = Map<String, SpriteAnimation>.from(animations!);
     current = 'idle';
     add(RectangleHitbox());
     _shieldBadge = ShieldBadge(player: this);
     game.add(_shieldBadge);
+    await _loadAnimations();
+  }
+
+  double _getWeaponBaseDamage() {
+    return switch (game.inventory.weaponType) {
+      'sword' => DamageConfig.swordBaseDamage,
+      'bow' => DamageConfig.bowBaseDamage,
+      _ => DamageConfig.noneBaseDamage,
+    };
+  }
+
+  void refreshWeaponAnimation() {
+    if (!isLoaded) return;
+    size = Vector2.all(
+      game.size.y * 0.2 * (game.inventory.weaponType == 'none' ? 1 : 42 / 32),
+    );
+    _loadAnimations().then((_) {
+      current = 'idle';
+    });
   }
 
   String _attackAnimForCombo(int step) {
-    if (step == 2) return 'attack2';
+    if (_squatting &&
+        isOnGround &&
+        animations?.containsKey('squatAttack') == true)
+      return 'squatAttack';
+    if (!isOnGround && animations?.containsKey('jumpAttack') == true)
+      return 'jumpAttack';
+    if (_running && _lastInput.abs() > 0.1) {
+      final runAttack = step == 2 ? 'runAttack2' : 'runAttack1';
+      if (animations?.containsKey(runAttack) == true) return runAttack;
+    }
+    if (step == 2 && animations?.containsKey('attack2') == true)
+      return 'attack2';
     if (_lastInput.abs() > 0.1) return 'walkAttack';
     return 'attack1';
   }
@@ -270,7 +475,6 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     _stunTimer = 1.0;
     _shielding = false;
     _attacking = false;
-    _throwing = false;
     _targetVx = 0;
     vx = 0;
     current = 'stun';
@@ -294,33 +498,68 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       _comboHit2 = true;
     }
 
+    final baseDamage = _getWeaponBaseDamage();
+    final totalDamage = baseDamage + dmgBonus;
+
     if (game.currentMap == 1) {
       final slime = game.slime;
       if (!slime._dead &&
-          (position - slime.position).length <
-              (size.x + slime.size.x) * 0.35) {
-        slime.takeDamage(10.0 + game.player.dmgBonus);
+          (position - slime.position).length < (size.x + slime.size.x) * 0.35) {
+        slime.takeDamage(totalDamage);
       }
     } else if (game.currentMap == 2) {
       final boss = game.boss;
       if (!boss.dead &&
           (position - boss.position).length < (size.x + boss.size.x) * 0.5) {
-        boss.takeDamage(10.0 + game.player.dmgBonus);
+        boss.takeDamage(totalDamage);
       }
       for (final minion in game.children.whereType<BossMinion>().toList()) {
         if (!minion.dead &&
-            (position - minion.position).length < (size.x + minion.size.x) * 0.5) {
-          minion.takeDamage(10.0 + game.player.dmgBonus);
+            (position - minion.position).length <
+                (size.x + minion.size.x) * 0.5) {
+          minion.takeDamage(totalDamage);
         }
       }
     }
+  }
+
+  Sprite? _arrowSprite;
+  double _arrowSpawnDelay = 0;
+  bool _arrowSpawned = false;
+
+  Future<void> _loadArrowSprite() async {
+    if (_arrowSprite != null) return;
+    final image = await game.images.load(
+      'characters/${character.id}_monster_bow/Arrows.png',
+    );
+    _arrowSprite = Sprite(
+      image,
+      srcPosition: Vector2.zero(),
+      srcSize: Vector2(image.width.toDouble(), image.height.toDouble()),
+    );
+  }
+
+  void _spawnArrow() {
+    if (_arrowSpawned || _arrowSprite == null) return;
+    _arrowSpawned = true;
+    game.add(
+      ArrowProjectile(
+        position: position + Vector2(size.x * 0.45 * direction, size.y * 0.25),
+        sprite: _arrowSprite!,
+        vx: direction * size.y * 4,
+        damage: _getWeaponBaseDamage() + dmgBonus,
+        size: Vector2(size.y * 0.6, size.y * 0.15),
+      ),
+    );
   }
 
   void attack() {
     if (_stunned || _shielding) return;
     if (!_canUseStamina(StaminaConfig.attackCost)) return;
     if (_attacking) {
-      if (_comboStep == 1 && _comboWindow <= 0.18) {
+      if (game.inventory.weaponType != 'bow' &&
+          _comboStep == 1 &&
+          _comboWindow <= 0.18) {
         _comboStep = 2;
         _comboWindow = 0.48;
         current = 'attack2';
@@ -337,35 +576,19 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     _comboHit1 = false;
     _comboHit2 = false;
     consumeStamina(StaminaConfig.attackCost);
-    _dealMeleeDamage(1);
+    if (game.inventory.weaponType == 'bow') {
+      _arrowSprite = null;
+      _arrowSpawned = false;
+      _arrowSpawnDelay = 0.18;
+      _loadArrowSprite();
+    } else {
+      _dealMeleeDamage(1);
+    }
     _attacking = true;
     _comboStep = 1;
     _comboWindow = 0.48;
     _applySpeed();
     current = _attackAnimForCombo(1);
-  }
-
-  void _spawnRock() {
-    if (_rockSprite == null) return;
-    game.add(
-      RockProjectile(
-        position: position + Vector2(direction * size.x * 0.45, size.y * 0.05),
-        sprite: _rockSprite!,
-        vx: direction * movementSpeed * 2.5,
-        size: Vector2.all(size.y * 0.30),
-      ),
-    );
-  }
-
-  void throwRock() {
-    if (_stunned || _throwing || _shielding || _rockSprite == null) return;
-    if (!_canUseStamina(StaminaConfig.throwRockCost)) return;
-    consumeStamina(StaminaConfig.throwRockCost);
-    _throwing = true;
-    _throwTimer = character.throwAmount * character.throwStepTime;
-    _throwSpawnDelay = _throwTimer * 0.70;
-    _throwSpawned = false;
-    current = 'throw';
   }
 
   void setAttackHeld(bool active) {
@@ -447,12 +670,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void _updateAnimationState() {
-    if (_attacking || _throwing) return;
+    if (_attacking) return;
     final hasMovementInput =
         _keysPressed.contains(settings.leftKey) ||
         _keysPressed.contains(settings.rightKey) ||
         _lastInput.abs() > 0.01;
-    if (_shielding) {
+    if (_squatting && isOnGround) {
+      current = 'squat';
+    } else if (_shielding) {
       current = 'push';
     } else if (!isOnGround) {
       current = _doubleJumpUsed ? 'doubleJump' : 'jump';
@@ -586,11 +811,17 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     if (game.isPaused.value) return false;
     _keysPressed
       ..removeWhere(
-        (key) => key == settings.leftKey || key == settings.rightKey,
+        (key) =>
+            key == settings.leftKey ||
+            key == settings.rightKey ||
+            key == settings.squatKey,
       )
       ..addAll(
         keysPressed.where(
-          (key) => key == settings.leftKey || key == settings.rightKey,
+          (key) =>
+              key == settings.leftKey ||
+              key == settings.rightKey ||
+              key == settings.squatKey,
         ),
       );
     if (event is KeyDownEvent) {
@@ -604,9 +835,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         jump();
       else if (event.logicalKey == settings.attackKey)
         attack();
-      else if (event.logicalKey == settings.throwKey)
-        throwRock();
-      else if (event.logicalKey == settings.shieldKey)
+      else if (event.logicalKey == settings.squatKey) {
+        _squatting = true;
+        _updateAnimationState();
+      } else if (event.logicalKey == settings.shieldKey)
         setShielding(true);
       else if (event.logicalKey == settings.runKey) {
         _keysPressed.add(event.logicalKey);
@@ -631,6 +863,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       } else if (event.logicalKey == settings.shieldKey) {
         _keysPressed.remove(event.logicalKey);
         setShielding(false);
+      } else if (event.logicalKey == settings.squatKey) {
+        _squatting = false;
+        _updateAnimationState();
       } else if (event.logicalKey == settings.runKey) {
         _keysPressed.remove(event.logicalKey);
         setRunning(false);
@@ -661,19 +896,6 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         _respawn();
       }
       return;
-    }
-    if (_throwing) {
-      _throwSpawnDelay -= dt;
-      if (!_throwSpawned && _throwSpawnDelay <= 0) {
-        _throwSpawned = true;
-        _spawnRock();
-      }
-      _throwTimer -= dt;
-      if (_throwTimer <= 0) {
-        _throwing = false;
-        _throwSpawned = false;
-        _updateAnimationState();
-      }
     }
     if (_coyoteTimer > 0) _coyoteTimer = (_coyoteTimer - dt).clamp(0, 0.12);
     if (_jumpBuffer > 0) {
@@ -749,9 +971,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     }
 
     if (_attacking) {
+      if (game.inventory.weaponType == 'bow' && !_arrowSpawned) {
+        _arrowSpawnDelay -= dt;
+        if (_arrowSpawnDelay <= 0) _spawnArrow();
+      }
       _comboWindow -= dt;
       if (_attackHeld &&
           !_shielding &&
+          game.inventory.weaponType != 'bow' &&
           _comboStep == 1 &&
           _comboWindow <= 0.08) {
         _comboStep = 2;
@@ -858,7 +1085,7 @@ class SlimeEnemy extends SpriteAnimationComponent
         priority: 2,
       );
 
-@override
+  @override
   Future<void> onLoad() async {
     try {
       final walkImg = await game.images.load(
@@ -945,8 +1172,9 @@ class SlimeEnemy extends SpriteAnimationComponent
       if (_attackTimer <= 0) {
         _attacking = false;
         animation = directionX > 0 ? _rightAnimation : _leftAnimation;
-        if ((player.position - position).length < (size.x + player.size.x) * 0.35 * 2) {
-          player.takeDamage(30);
+        if ((player.position - position).length <
+            (size.x + player.size.x) * 0.35 * 2) {
+          player.takeDamage(DamageConfig.slimeBaseDamage);
         }
       }
       return;
@@ -960,7 +1188,8 @@ class SlimeEnemy extends SpriteAnimationComponent
 
     // Attack if close & cooldown over
     if (_attackCooldown <= 0 &&
-        (player.position - position).length < (size.x + player.size.x) * 0.35 * 2) {
+        (player.position - position).length <
+            (size.x + player.size.x) * 0.35 * 2) {
       _attacking = true;
       _attackTimer = 0.9;
       _attackCooldown = 7.0;
@@ -1054,7 +1283,7 @@ class NgocRongGame extends FlameGame
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
   final InventoryState inventory = InventoryState();
   List<InventoryItem> itemCatalog = [];
-  
+
   NgocRongGame({required this.character});
 
   @override
@@ -1230,7 +1459,9 @@ class NgocRongGame extends FlameGame
       fire.size = Vector2.all(size.y * 0.12);
       final playerSize = size.y * 0.2;
       final groundHeight = size.y * 0.1;
-      player.size = Vector2.all(playerSize);
+      player.size = Vector2.all(
+        playerSize * (inventory.weaponType == 'none' ? 1 : 42 / 32),
+      );
       player.position.y = size.y - groundHeight - playerSize / 2;
       final maxX = size.x - playerSize / 2;
       if (player.position.x > maxX) player.position.x = maxX;

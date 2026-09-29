@@ -56,9 +56,9 @@ class InventoryState {
     'ring1': ['ring'],
     'ring2': ['ring'],
     'helm': ['helm'],
-    'weapon1': ['weapon', 'shield'],
+    'weapon1': ['weapon', 'shield', 'bow'],
     'armor': ['armor'],
-    'weapon2': ['weapon', 'shield'],
+    'weapon2': ['weapon', 'shield', 'bow'],
     'belt': ['belt'],
     'boots': ['boots'],
     'artifact': ['artifact'],
@@ -103,6 +103,12 @@ class InventoryState {
 
   bool equip(InventoryItem item) {
     if (equippedSlots.containsValue(item.id)) return true;
+    if (item.type == 'weapon' || item.type == 'bow') {
+      equippedSlots['weapon1'] = null;
+      equippedSlots['weapon2'] = null;
+      equippedSlots['weapon1'] = item.id;
+      return true;
+    }
     if (item.type == 'shield') {
       for (final slot in ['weapon1', 'weapon2']) {
         if (equippedSlots[slot] == null) {
@@ -136,9 +142,27 @@ class InventoryState {
     return false;
   }
 
-  void clear() {
-    items.clear();
-    equippedSlots.updateAll((_, __) => null);
+  String get weaponType {
+    final weapon1Id = equippedSlots['weapon1'];
+    final weapon2Id = equippedSlots['weapon2'];
+
+    if (weapon1Id != null) {
+      final item = items.firstWhere(
+        (i) => i.id == weapon1Id,
+        orElse: () => InventoryItem(id: '', name: '', type: ''),
+      );
+      if (item.type == 'weapon') return 'sword';
+      if (item.type == 'bow') return 'bow';
+    }
+    if (weapon2Id != null) {
+      final item = items.firstWhere(
+        (i) => i.id == weapon2Id,
+        orElse: () => InventoryItem(id: '', name: '', type: ''),
+      );
+      if (item.type == 'weapon') return 'sword';
+      if (item.type == 'bow') return 'bow';
+    }
+    return 'none';
   }
 }
 

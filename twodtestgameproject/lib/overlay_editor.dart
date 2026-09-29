@@ -243,7 +243,6 @@ class _OverlayEditorPageState extends State<OverlayEditorPage> {
     OverlayButtonId.moveRight => Icons.keyboard_arrow_right,
     OverlayButtonId.shield => Icons.shield,
     OverlayButtonId.run => Icons.directions_run,
-    OverlayButtonId.throwRock => Icons.landscape,
     OverlayButtonId.attack => Icons.local_fire_department,
     OverlayButtonId.jump => Icons.keyboard_arrow_up,
   };

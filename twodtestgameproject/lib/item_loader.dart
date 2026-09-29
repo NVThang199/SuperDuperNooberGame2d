@@ -15,7 +15,7 @@ class ItemLoader {
       }
       final type = parts[4];
       if (!{
-        'ring', 'necklace', 'bracer', 'armor', 'weapon', 'shield', 
+        'ring', 'necklace', 'bracer', 'armor', 'weapon', 'bow', 'shield', 
         'helm', 'boots', 'belt', 'artifact', 'cape'
       }.contains(type)) {
         throw FormatException('Invalid item type: $type');
