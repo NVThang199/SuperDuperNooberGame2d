@@ -13,12 +13,19 @@ class ItemLoader {
           'Expected 11 columns, got ${parts.length}: $line',
         );
       }
+      final type = parts[4];
+      if (!{
+        'ring', 'necklace', 'bracer', 'armor', 'weapon', 'shield', 
+        'helm', 'boots', 'belt', 'artifact', 'cape'
+      }.contains(type)) {
+        throw FormatException('Invalid item type: $type');
+      }
       return InventoryItem(
         id: parts[0],
         name: parts[1],
         imagePath: parts[2],
         rarity: parts[3],
-        type: parts[4],
+        type: type,
         hpBonus: int.parse(parts[5]),
         mpBonus: int.parse(parts[6]),
         staminaBonus: int.parse(parts[7]),

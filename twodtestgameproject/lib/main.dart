@@ -466,24 +466,49 @@ class _GameScreenState extends State<GameScreen> {
                            ? InventoryWidget(
                                inventory: game.inventory,
                                 onUseItem: (item) {
-                                  game.player.maxHealth += item.hpBonus;
-                                  game.player.maxStamina += item.staminaBonus;
-                                   game.player.dmgBonus += item.dmgBonus;
-                                   game.player.defenseBonus += item.defenseBonus;
+                                  final stats = game.inventory.equippedSlots.values
+                                     .where((id) => id != null)
+                                     .map((id) => game.inventory.items.firstWhere((i) => i.id == id))
+                                     .fold(
+                                       {'hp': 0, 'stamina': 0, 'dmg': 0, 'def': 0},
+                                       (prev, item) => {
+                                         'hp': prev['hp']! + item.hpBonus,
+                                         'stamina': prev['stamina']! + item.staminaBonus,
+                                         'dmg': prev['dmg']! + item.dmgBonus,
+                                         'def': prev['def']! + item.defenseBonus,
+                                       }
+                                     );
+                                   game.player.maxHealth += stats['hp']!;
+                                   game.player.maxStamina += stats['stamina']!;
+                                   game.player.dmgBonus += stats['dmg']!;
+                                   game.player.defenseBonus += stats['def']!;
                                    game.player.maxHealthNotifier.value = game.player.maxHealth;
-                                  game.player.staminaNotifier.value = game.player.stamina;
-                                },
-                                onUnequipItem: (item) {
-                                  game.player.maxHealth -= item.hpBonus;
-                                  game.player.maxStamina -= item.staminaBonus;
-                                   game.player.dmgBonus -= item.dmgBonus;
-                                   game.player.defenseBonus -= item.defenseBonus;
+                                   game.player.staminaNotifier.value = game.player.stamina;
+                                 },
+                                 onUnequipItem: (item) {
+                                   game.inventory.unequip(item);
+                                   final stats = game.inventory.equippedSlots.values
+                                     .where((id) => id != null)
+                                     .map((id) => game.inventory.items.firstWhere((i) => i.id == id))
+                                     .fold(
+                                       {'hp': 0, 'stamina': 0, 'dmg': 0, 'def': 0},
+                                       (prev, item) => {
+                                         'hp': prev['hp']! + item.hpBonus,
+                                         'stamina': prev['stamina']! + item.staminaBonus,
+                                         'dmg': prev['dmg']! + item.dmgBonus,
+                                         'def': prev['def']! + item.defenseBonus,
+                                       }
+                                     );
+                                  game.player.maxHealth = 100.0 + stats['hp']!;
+                                  game.player.maxStamina = 100.0 + stats['stamina']!;
+                                  game.player.dmgBonus = 0 + stats['dmg']!;
+                                  game.player.defenseBonus = 0 + stats['def']!;
                                    game.player.health = game.player.health.clamp(0, game.player.maxHealth);
-                                  game.player.maxHealthNotifier.value = game.player.maxHealth;
-                                  game.player.healthNotifier.value = game.player.health;
-                                  game.player.stamina = game.player.stamina.clamp(0, game.player.maxStamina);
-                                  game.player.staminaNotifier.value = game.player.stamina;
-                                },
+                                   game.player.maxHealthNotifier.value = game.player.maxHealth;
+                                   game.player.healthNotifier.value = game.player.health;
+                                   game.player.stamina = game.player.stamina.clamp(0, game.player.maxStamina);
+                                   game.player.staminaNotifier.value = game.player.stamina;
+                                 },
                                onGiveAll: () => setState(() {
                                  game.inventory.items.clear();
                                  game.inventory.items.addAll(game.itemCatalog);

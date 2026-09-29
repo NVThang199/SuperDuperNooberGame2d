@@ -30,14 +30,42 @@ class InventoryItem {
 
 class InventoryState {
   final List<InventoryItem> items;
-  final Set<String> equippedIds = {};
+  final Map<String, String?> equippedSlots = {
+    'ring1': null,
+    'helm': null,
+    'ring2': null,
+    'weapon1': null,
+    'armor': null,
+    'weapon2': null,
+    'belt': null,
+    'boots': null,
+    'artifact': null,
+    'bracer1': null,
+    'necklace': null,
+    'cape': null,
+  };
   int page;
   int selected;
-  static const int slotsPerPage = 20;
-  static const int maxEquippedItems = 8;
+  static const int slotsPerPage = 16;
+  static const int maxEquippedItems = 12;
 
   InventoryState({List<InventoryItem>? items, this.page = 0, this.selected = 0})
     : items = items ?? [];
+
+  static Map<String, List<String>> _slotTypeCompatibility() => {
+    'ring1': ['ring'],
+    'ring2': ['ring'],
+    'helm': ['helm'],
+    'weapon1': ['weapon', 'shield'],
+    'armor': ['armor'],
+    'weapon2': ['weapon', 'shield'],
+    'belt': ['belt'],
+    'boots': ['boots'],
+    'artifact': ['artifact'],
+    'bracer1': ['bracer'],
+    'necklace': ['necklace'],
+    'cape': ['cape'],
+  };
 
   int get maxPages => (items.length / slotsPerPage).ceil().clamp(1, 999);
   List<InventoryItem> get pageItems {
@@ -54,7 +82,7 @@ class InventoryState {
     if (page > 0) page--;
   }
 
-  int get equippedCount => equippedIds.length;
+  int get equippedCount => equippedSlots.values.where((v) => v != null).length;
 
   List<InventoryItem> search(String query, [List<InventoryItem>? items]) {
     final searchItems = items ?? this.items;
@@ -74,18 +102,43 @@ class InventoryState {
   }
 
   bool equip(InventoryItem item) {
-    if (equippedIds.length >= maxEquippedItems) return false;
-    equippedIds.add(item.id);
-    return true;
+    if (equippedSlots.containsValue(item.id)) return true;
+    if (item.type == 'shield') {
+      for (final slot in ['weapon1', 'weapon2']) {
+        if (equippedSlots[slot] == null) {
+          equippedSlots[slot] = item.id;
+          return true;
+        }
+      }
+    }
+
+    final compatibleSlots = _slotTypeCompatibility().entries
+      .where((entry) => entry.value.contains(item.type))
+      .map((entry) => entry.key)
+      .toList();
+
+    for (final slot in compatibleSlots) {
+      if (equippedSlots[slot] == null) {
+        equippedSlots[slot] = item.id;
+        return true;
+      }
+    }
+    return false;
   }
 
   bool unequip(InventoryItem item) {
-    return equippedIds.remove(item.id);
+    for (final entry in equippedSlots.entries) {
+      if (entry.value == item.id) {
+        equippedSlots[entry.key] = null;
+        return true;
+      }
+    }
+    return false;
   }
 
   void clear() {
     items.clear();
-    equippedIds.clear();
+    equippedSlots.updateAll((_, __) => null);
   }
 }
 
@@ -110,19 +163,32 @@ class InventoryWidget extends StatefulWidget {
 }
 
 class _InventoryWidgetState extends State<InventoryWidget> {
-  static const _frameW = 448.0;
-  static const _frameH = 448.0;
-  static const _cols = 5;
+  static const _frameW = 147.0;
+  static const _frameH = 84.0;
+  static const _cols = 4;
   static const _rows = 4;
-  static const _gridLeft = 68.0;
-  static const _gridTop = 68.0;
-  static const _gridRight = 376.0;
-  static const _gridBottom = 312.0;
+  static const _gridLeft = 74.0;
+  static const _gridTop = 19.0;
+  static const _gridRight = _gridLeft + 3.9 * 13;
+  static const _gridBottom = _gridTop + 4 * 13;
+
+  static const _eqLeft = 17.0;
+  static const _eqRight = _eqLeft + 2.9 * 12.5;
+  static const _eqTop = 19.0;
+  static const _eqBottom = _eqTop + 4.05 * 12.5;
+  static const _eqCols = 3;
+  static const _eqRows = 4;
 
   static const _frames = [
     'assets/images/ui/inventory/Inventory1.png',
     'assets/images/ui/inventory/Inventory2.png',
-    'assets/images/ui/inventory/Inventory3.png',
+  ];
+
+  static final _eqSlotOrder = [
+    'ring1', 'helm', 'ring2',
+    'weapon1', 'armor', 'weapon2',
+    'belt', 'boots', 'artifact',
+    'bracer1', 'necklace', 'cape',
   ];
 
   String? _filterRarity;
@@ -141,7 +207,9 @@ class _InventoryWidgetState extends State<InventoryWidget> {
       items = widget.inventory.filter(rarity: _filterRarity);
     }
     _filteredInventory = InventoryState(items: items, page: 0, selected: 0);
-    _filteredInventory.equippedIds.addAll(widget.inventory.equippedIds);
+    _filteredInventory.equippedSlots
+      ..clear()
+      ..addAll(widget.inventory.equippedSlots);
   }
 
   @override
@@ -149,7 +217,7 @@ class _InventoryWidgetState extends State<InventoryWidget> {
     final inv = widget.inventory;
     return LayoutBuilder(
       builder: (context, box) {
-        final h = box.maxHeight * 0.80;
+        final h = box.maxHeight * 0.8;
         final w = h * (_frameW / _frameH);
         final scale = h / _frameH;
 
@@ -163,140 +231,132 @@ class _InventoryWidgetState extends State<InventoryWidget> {
               onTapUp: (d) => _onTap(d.localPosition, scale, _filteredInventory),
               child: Stack(
                 children: [
-                  ..._frames.map(
-                    (path) => Positioned.fill(
+                  Positioned.fill(
+                    child: OverflowBox(
+                      maxWidth: double.infinity,
+                      maxHeight: double.infinity,
+                      child: Transform.scale(
+                        scale: 3.5,
+                        child: Image.asset(
+                          _frames[0],
+                          filterQuality: FilterQuality.none,
+                          fit: BoxFit.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: w * 0.4 - 4,
+                    top: 40,
+                    width: w * 0.6,
+                    height: h,
+                    child: Transform.scale(
+                      scale: 0.72,
                       child: Image.asset(
-                        path,
+                        _frames[1],
+                        fit: BoxFit.none,
                         filterQuality: FilterQuality.none,
                       ),
                     ),
                   ),
+                  _equipmentSlots(inv, scale),
                   _highlight(_filteredInventory, scale),
+                  _label('${_filteredInventory.page + 1}/${_filteredInventory.maxPages}', scale                  ),
                   Positioned(
-                    left: 38.0 * scale,
-                    top: 169.0 * scale,
-                    width: 30.0 * scale,
-                    height: 40.0 * scale,
-                    child: IgnorePointer(
-                      child: Container(color: const Color(0x00000000)),
-                    ),
+                  left: 68 * scale,
+                  top: 43 * scale,
+                  child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _filteredInventory.page > 0
+                  ? () => setState(() => _filteredInventory.prevPage())
+                  : null,
+                  child: Container(
+                    width: 4 * scale,
+                    height: 6 * scale,
+                    color: Colors.transparent,
+                  ),
+                  ),
                   ),
                   Positioned(
-                    left: 380.0 * scale,
-                    top: 169.0 * scale,
-                    width: 30.0 * scale,
-                    height: 40.0 * scale,
-                    child: IgnorePointer(
-                      child: Container(color: const Color(0x00000000)),
-                    ),
-                  ),
-                  _label('${_filteredInventory.page + 1}/${_filteredInventory.maxPages}', scale),
-                  Positioned(
-                    right: w * 0.09,
-                    top: h * 0.02,
+                  left: 130 * scale,
+                  top: 43 * scale,
                     child: GestureDetector(
+                    onTap: _filteredInventory.page < _filteredInventory.maxPages - 1
+                      ? () => setState(() => _filteredInventory.nextPage())
+                      : null,
+                  child: Container(
+                    width: 4 * scale,
+                    height: 6 * scale,
+                    color: Colors.transparent,
+                  ),
+                  ),
+                  ),
+                  Positioned(
+                    right: w * 0.05,
+                    top: h * 0.03,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: widget.onClose,
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: w * 0.08,
-                      ),
+                      child: SizedBox(width: w * 0.08, height: w * 0.08),
                     ),
                   ),
-                  Positioned(
-                    left: w * 0.18,
-                    top: h * 0.88,
-                    child: GestureDetector(
-                      onTap: widget.onGiveAll,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: w * 0.04,
-                          vertical: h * 0.01,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade700,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Give All',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: w * 0.05,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: w * 0.52,
-                    top: h * 0.88,
-                    child: GestureDetector(
-                      onTap: () {
-                        widget.inventory.clear();
-                        setState(() => _rebuildFilteredInventory());
-                      },
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: w * 0.04,
-                          vertical: h * 0.01,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade700,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Delete All',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: w * 0.05,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: w * 0.25,
-                    top: h * 0.02,
-                    child: Text(
-                      '${inv.equippedCount}/8',
-                      style: TextStyle(
-                        color: Colors.yellow,
-                        fontSize: w * 0.06,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: h * 0.02,
-                      child: Center(
-                        child: DropdownButton<String?>(
-                          value: _filterRarity,
-                          items: const [
-                            DropdownMenuItem(value: null, child: Text('Tất cả', style: TextStyle(color: Colors.white, fontSize: 12))),
-                            DropdownMenuItem(value: 'common', child: Text('Common', style: TextStyle(color: Colors.white, fontSize: 12))),
-                            DropdownMenuItem(value: 'uncommon', child: Text('Uncommon', style: TextStyle(color: Colors.white, fontSize: 12))),
-                            DropdownMenuItem(value: 'rare', child: Text('Rare', style: TextStyle(color: Colors.white, fontSize: 12))),
-                            DropdownMenuItem(value: 'epic', child: Text('Epic', style: TextStyle(color: Colors.white, fontSize: 12))),
-                            DropdownMenuItem(value: 'legendary', child: Text('Legendary', style: TextStyle(color: Colors.white, fontSize: 12))),
-                          ],
-                          onChanged: (v) => setState(() {
-                            _filterRarity = v;
-                            _rebuildFilteredInventory();
-                          }),
-                          dropdownColor: Colors.grey.shade800,
-                        ),
-                      ),
-                    ),
+
                 ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _equipmentSlots(InventoryState inv, double scale) {
+    final slotW = ((_eqRight - _eqLeft) / _eqCols) * scale;
+    final slotH = ((_eqBottom - _eqTop) / _eqRows) * scale;
+
+    return Stack(
+      children: [
+        for (int i = 0; i < _eqSlotOrder.length; i++)
+          _eqSlot(inv, i, scale, slotW, slotH),
+      ],
+    );
+  }
+
+  Widget _eqSlot(InventoryState inv, int idx, double scale, double slotW, double slotH) {
+    final col = idx % _eqCols;
+    final row = idx ~/ _eqCols;
+    final x = _eqLeft * scale + col * (slotW + 2.0 * scale);
+    final y = _eqTop * scale + row * (slotH + 2.0 * scale);
+    final slotId = _eqSlotOrder[idx];
+    final itemId = inv.equippedSlots[slotId];
+    final item = itemId == null ? null : inv.items.firstWhere(
+      (it) => it.id == itemId,
+      orElse: () => InventoryItem(id: '', name: '', type: ''),
+    );
+
+    return Positioned(
+      left: x,
+      top: y,
+      width: slotW,
+      height: slotH,
+      child: GestureDetector(
+        onTap: item != null && item.id.isNotEmpty
+          ? () => _showItemDetailDialog(item)
+          : null,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.transparent, width: 0),
+            color: Colors.transparent,
+          ),
+          child: item != null && item.imagePath.isNotEmpty
+            ? Image.asset(
+                item.imagePath,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: Colors.grey),
+              )
+            : SizedBox.shrink(),
+        ),
+      ),
     );
   }
 
@@ -324,10 +384,9 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   ) {
     final col = idx % _cols;
     final row = idx ~/ _cols;
-    final x = _gridLeft * scale + col * slotW;
-    final y = _gridTop * scale + row * slotH;
-    final isSelected = inv.selected == idx;
-    final isEquipped = inv.equippedIds.contains(item.id);
+    final x = _gridLeft * scale + col * (slotW + 1.5 * scale);
+    final y = _gridTop * scale + row * (slotH + 1.5 * scale);
+    final isEquipped = inv.equippedSlots.containsValue(item.id);
 
     return Positioned(
       left: x,
@@ -336,16 +395,6 @@ class _InventoryWidgetState extends State<InventoryWidget> {
       height: slotH,
       child: Stack(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isSelected
-                    ? Colors.yellow
-                    : (isEquipped ? Colors.green : Colors.grey),
-                width: isSelected ? 3 : 2,
-              ),
-            ),
-          ),
           if (item.imagePath.isNotEmpty)
             Image.asset(
               item.imagePath,
@@ -376,16 +425,14 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   }
 
   Widget _label(String text, double scale) {
-    final labelX = _gridLeft * scale;
-    final labelY = (_gridBottom + 6) * scale;
     return Positioned(
-      left: labelX,
-      top: labelY,
+      right: 8 * scale,
+      bottom: 2 * scale,
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
-          fontSize: 12,
+          fontSize: scale * 5,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -398,37 +445,6 @@ class _InventoryWidgetState extends State<InventoryWidget> {
     final gridW = (_gridRight - _gridLeft) * scale;
     final gridH = (_gridBottom - _gridTop) * scale;
 
-    // Left arrow: (38, 169) on 448×448 frame, 30×40 px
-    final leftArrowX = 38.0 * scale;
-    final leftArrowY = 169.0 * scale;
-    final leftArrowW = 30.0 * scale;
-    final leftArrowH = 40.0 * scale;
-
-    // Right arrow: (380, 169) on 448×448 frame, 30×40 px
-    final rightArrowX = 380.0 * scale;
-    final rightArrowY = 169.0 * scale;
-    final rightArrowW = 30.0 * scale;
-    final rightArrowH = 40.0 * scale;
-
-    if (local.dx >= leftArrowX &&
-        local.dx < leftArrowX + leftArrowW &&
-        local.dy >= leftArrowY &&
-        local.dy < leftArrowY + leftArrowH) {
-      inv.prevPage();
-      setState(() {});
-      return;
-    }
-
-    if (local.dx >= rightArrowX &&
-        local.dx < rightArrowX + rightArrowW &&
-        local.dy >= rightArrowY &&
-        local.dy < rightArrowY + rightArrowH) {
-      inv.nextPage();
-      setState(() {});
-      return;
-    }
-
-    // Slot tap -> show detail dialog
     if (local.dx >= gridLeft &&
         local.dx < gridLeft + gridW &&
         local.dy >= gridTop &&
@@ -452,7 +468,15 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   }
 
   void _showItemDetailDialog(InventoryItem item) {
-    final isEquipped = widget.inventory.equippedIds.contains(item.id);
+    final isEquipped = widget.inventory.equippedSlots.containsValue(item.id);
+    String? slotInfo;
+    if (isEquipped) {
+      final slot = widget.inventory.equippedSlots.entries
+        .firstWhere((e) => e.value == item.id, orElse: () => const MapEntry('', null))
+        .key;
+      slotInfo = 'Đang trang bị ở: $slot';
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -465,6 +489,10 @@ class _InventoryWidgetState extends State<InventoryWidget> {
               if (item.imagePath.isNotEmpty)
                 Image.asset(item.imagePath, width: 64, height: 64),
               const SizedBox(height: 12),
+              if (slotInfo != null) ...[
+                Text(slotInfo, style: TextStyle(color: Colors.green.shade400)),
+                const SizedBox(height: 4),
+              ],
               Text('Loại: ${item.type}'),
               Text('Độ hiếm: ${item.rarity}'),
               const Divider(),
@@ -491,21 +519,22 @@ class _InventoryWidgetState extends State<InventoryWidget> {
               },
               child: const Text('Tháo'),
             )
-          else if (widget.inventory.equippedCount <
-              InventoryState.maxEquippedItems)
+          else if (widget.inventory.equippedCount < InventoryState.maxEquippedItems)
             TextButton(
               onPressed: () {
-                widget.inventory.equip(item);
-                widget.onUseItem(item);
-                Navigator.pop(ctx);
-                setState(() {});
+                final success = widget.inventory.equip(item);
+                if (success) {
+                  widget.onUseItem(item);
+                  Navigator.pop(ctx);
+                  setState(() {});
+                }
               },
               child: const Text('Trang bị'),
             )
           else
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Đã đủ 8 món'),
+              child: const Text('Hết chỗ'),
             ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
