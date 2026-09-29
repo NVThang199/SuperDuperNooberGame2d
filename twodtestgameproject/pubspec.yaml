@@ -27,6 +27,7 @@ flutter:
     - assets/images/characters/owlet_monster/
     - assets/images/characters/pink_monster/
     - assets/images/enemies/slime3/
+    - assets/images/enemies/boss/
     - assets/images/environment/
     - assets/images/action/
     - assets/images/ui/
@@ -34,3 +35,4 @@ flutter:
     - assets/images/background/
     - assets/item/
     - assets/item/64x64/
+    - assets/images/background/forest_map2.png

@@ -20,6 +20,7 @@ import 'item_loader.dart';
 import 'character_config.dart';
 import 'shield_badge.dart';
 import 'stamina_config.dart';
+import 'boss.dart';
 
 class GameSettings {
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
@@ -65,6 +66,15 @@ class RockProjectile extends SpriteComponent
     slime.takeDamage(10.0 + game.player.dmgBonus);
       removeFromParent();
       return;
+    }
+    if (game.currentMap == 2) {
+      final boss = game.boss;
+      if (!boss.dead &&
+          (position - boss.position).length < BossEnemy.frameSize * 1.2) {
+        boss.takeDamage(10);
+        removeFromParent();
+        return;
+      }
     }
     if (position.x < -100 || position.x > game.size.x + 100) {
       removeFromParent();
@@ -277,17 +287,32 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   void _dealMeleeDamage(int step) {
     if (step == 1 && _comboHit1) return;
     if (step == 2 && _comboHit2) return;
-    final slime = game.slime;
-    if (game.currentMap != 1 || slime._dead) return;
-    if ((position - slime.position).length >= (size.x + slime.size.x) * 0.35) {
-      return;
-    }
     if (step == 1) {
       _comboHit1 = true;
     } else {
       _comboHit2 = true;
     }
-      slime.takeDamage(10.0 + game.player.dmgBonus);
+
+    if (game.currentMap == 1) {
+      final slime = game.slime;
+      if (!slime._dead &&
+          (position - slime.position).length <
+              (size.x + slime.size.x) * 0.35) {
+        slime.takeDamage(10.0 + game.player.dmgBonus);
+      }
+    } else if (game.currentMap == 2) {
+      final boss = game.boss;
+      if (!boss.dead &&
+          (position - boss.position).length < (size.x + boss.size.x) * 0.5) {
+        boss.takeDamage(10.0 + game.player.dmgBonus);
+      }
+      for (final minion in game.children.whereType<BossMinion>().toList()) {
+        if (!minion.dead &&
+            (position - minion.position).length < (size.x + minion.size.x) * 0.5) {
+          minion.takeDamage(10.0 + game.player.dmgBonus);
+        }
+      }
+    }
   }
 
   void attack() {
@@ -788,6 +813,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       game.add(game.background);
       game.removeAll(game.children.whereType<DoubleJumpDust>());
       game.slime.removeFromParent();
+      game.boss.health = game.boss.maxHealth;
+      game.boss.resetState();
+      game.boss.removeFromParent();
+      game.removeAll(game.children.whereType<BossMinion>());
       game.add(game.chest);
       game.add(game.fire);
     }
@@ -1009,6 +1038,7 @@ class NgocRongGame extends FlameGame
   late LocalPlayer player;
   late SpriteComponent background;
   late SpriteComponent background1;
+  late SpriteComponent background2;
   late SpriteComponent chest;
   late SpriteAnimationComponent fire;
   late Sprite chestOpenSprite;
@@ -1018,6 +1048,9 @@ class NgocRongGame extends FlameGame
   final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
   int currentMap = 0;
   late SlimeEnemy slime;
+  late BossEnemy boss;
+
+  final ValueNotifier<bool> isPaused = ValueNotifier(false);
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
   final InventoryState inventory = InventoryState();
@@ -1040,6 +1073,12 @@ class NgocRongGame extends FlameGame
     final forest1 = await images.load('background/forest_map1.png');
     background1 = SpriteComponent(
       sprite: Sprite(forest1),
+      size: size.clone(),
+      priority: -1,
+    );
+    final forest2 = await images.load('background/forest_map2.png');
+    background2 = SpriteComponent(
+      sprite: Sprite(forest2),
       size: size.clone(),
       priority: -1,
     );
@@ -1096,6 +1135,12 @@ class NgocRongGame extends FlameGame
     slime = SlimeEnemy(position: player.position.clone(), player: player)
       ..size = Vector2.all(player.size.y * 1.35);
     slime.position.y = player.position.y + player.size.y * 0.45;
+
+    boss = BossEnemy(
+      game: this,
+      player: player,
+      position: Vector2(size.x * 0.55, player.position.y),
+    );
   }
 
   void openChest() {
@@ -1127,6 +1172,22 @@ class NgocRongGame extends FlameGame
       add(slime);
       canOpenChest.value = false;
       player.position.x = size.x * 0.1;
+    } else if (currentMap == 1 && player.position.x >= maxPlayerX - 1) {
+      currentMap = 2;
+      removeAll(children.whereType<DoubleJumpDust>());
+      background1.removeFromParent();
+      add(background2);
+      slime.removeFromParent();
+      add(boss);
+      player.position.x = size.x * 0.1;
+    } else if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
+      currentMap = 1;
+      removeAll(children.whereType<DoubleJumpDust>());
+      background2.removeFromParent();
+      add(background1);
+      boss.removeFromParent();
+      add(slime);
+      player.position.x = size.x * 0.9;
     } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
       currentMap = 0;
       removeAll(children.whereType<DoubleJumpDust>());
@@ -1165,6 +1226,7 @@ class NgocRongGame extends FlameGame
     if (isLoaded) {
       background.size = size.clone();
       background1.size = size.clone();
+      background2.size = size.clone();
       chest.size = Vector2.all(size.y * 0.15);
       fire.size = Vector2.all(size.y * 0.12);
       final playerSize = size.y * 0.2;
