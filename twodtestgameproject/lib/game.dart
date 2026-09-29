@@ -160,6 +160,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   bool _comboHit2 = false;
   double _comboWindow = 0;
   bool _dead = false;
+  bool get isDead => _dead;
   double _deathAnimTimer = 0;
   double _respawnTimer = 0;
   double _invincibilityTimer = 0;

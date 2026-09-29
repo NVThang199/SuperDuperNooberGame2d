@@ -384,8 +384,8 @@ class _GameScreenState extends State<GameScreen> {
                       _RoundControl(
                         icon: Icons.keyboard_arrow_left,
                         label: 'TRÁI',
-                        onPressed: () => _move(-1),
-                        onReleased: () => _move(0),
+                        onPressed: () => game.player.isDead ? null : _move(-1),
+                        onReleased: () => game.player.isDead ? null : _move(0),
                       ),
                     ),
                     _btn(
@@ -394,8 +394,8 @@ class _GameScreenState extends State<GameScreen> {
                       _RoundControl(
                         icon: Icons.keyboard_arrow_right,
                         label: 'PHẢI',
-                        onPressed: () => _move(1),
-                        onReleased: () => _move(0),
+                        onPressed: () => game.player.isDead ? null : _move(1),
+                        onReleased: () => game.player.isDead ? null : _move(0),
                       ),
                     ),
                     _btn(
@@ -405,8 +405,8 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.shield,
                         label: 'KHIÊN',
                         color: Colors.grey,
-                        onPressed: () => game.player.setShielding(true),
-                        onReleased: () => game.player.setShielding(false),
+                        onPressed: () => game.player.isDead ? null : game.player.setShielding(true),
+                        onReleased: () => game.player.isDead ? null : game.player.setShielding(false),
                       ),
                     ),
                     _btn(
@@ -416,8 +416,8 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.directions_run,
                         label: 'CHẠY',
                         color: Colors.green,
-                        onPressed: () => game.player.setRunning(true),
-                        onReleased: () => game.player.setRunning(false),
+                        onPressed: () => game.player.isDead ? null : game.player.setRunning(true),
+                        onReleased: () => game.player.isDead ? null : game.player.setRunning(false),
                       ),
                     ),
                     _btn(
@@ -427,7 +427,7 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.landscape,
                         label: 'NÉM ĐÁ',
                         color: Colors.brown,
-                        onPressed: () => game.player.throwRock(),
+                        onPressed: () => game.player.isDead ? null : game.player.throwRock(),
                       ),
                     ),
                     _btn(
@@ -437,8 +437,8 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.local_fire_department,
                         label: 'TẤN CÔNG',
                         color: Colors.red,
-                        onPressed: () => game.player.setAttackHeld(true),
-                        onReleased: () => game.player.setAttackHeld(false),
+                        onPressed: () => game.player.isDead ? null : game.player.setAttackHeld(true),
+                        onReleased: () => game.player.isDead ? null : game.player.setAttackHeld(false),
                       ),
                     ),
                     _btn(
@@ -448,7 +448,7 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.keyboard_arrow_up,
                         label: 'NHẢY',
                         color: Colors.orange,
-                        onPressed: () => game.player.jump(),
+                        onPressed: () => game.player.isDead ? null : game.player.jump(),
                       ),
                     ),
                   ],
