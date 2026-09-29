@@ -1051,8 +1051,6 @@ class NgocRongGame extends FlameGame
   late BossEnemy boss;
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
-
-  final ValueNotifier<bool> isPaused = ValueNotifier(false);
   final InventoryState inventory = InventoryState();
   List<InventoryItem> itemCatalog = [];
   
