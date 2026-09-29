@@ -82,13 +82,13 @@ class BossEnemy extends PositionComponent {
     double useStep;
     switch (state) {
       case 'attacking':
-        file = 'enemies/boss/attacking.png';
+        file = 'enemies/undead_boss/attacking.png';
         frames = 13;
         cols = 6;
         useStep = stepTime;
         break;
       case 'skill1':
-        file = 'enemies/boss/skill1.png';
+        file = 'enemies/undead_boss/skill1.png';
         frames = 12;
         cols = 6;
         useStep = stepTime;
@@ -96,26 +96,26 @@ class BossEnemy extends PositionComponent {
         invincibleTimer = 5 * skill1FastStep + 7 * skill1SlowStep;
         break;
       case 'summon':
-        file = 'enemies/boss/summon.png';
+        file = 'enemies/undead_boss/summon.png';
         frames = 5;
         cols = 4;
         useStep = slowStepTime;
         break;
       case 'idle2':
-        file = 'enemies/boss/idle2.png';
+        file = 'enemies/undead_boss/idle2.png';
         frames = 8;
         cols = 4;
         useStep = stepTime;
         break;
       case 'death':
-        file = 'enemies/boss/death.png';
+        file = 'enemies/undead_boss/death.png';
         frames = 20;
         cols = 10;
         useStep = stepTime;
         dead = true;
         break;
       default:
-        file = 'enemies/boss/idle.png';
+        file = 'enemies/undead_boss/idle.png';
         frames = 4;
         cols = 5;
         useStep = stepTime;
@@ -402,7 +402,7 @@ class BossMinion extends PositionComponent {
     );
     add(sprite);
 
-    final img = await Flame.images.load('enemies/boss/summonAppear.png');
+    final img = await Flame.images.load('enemies/undead_boss/summonAppear.png');
     final spriteList = <Sprite>[];
     for (int i = 0; i < 3; i++) {
       spriteList.add(
@@ -470,7 +470,7 @@ class BossMinion extends PositionComponent {
   }
 
   Future<void> _loadIdleAnim() async {
-    final img = await Flame.images.load('enemies/boss/summonIdle.png');
+    final img = await Flame.images.load('enemies/undead_boss/summonIdle.png');
     final spriteList = <Sprite>[];
     for (int i = 0; i < 4; i++) {
       spriteList.add(
@@ -498,7 +498,7 @@ class BossMinion extends PositionComponent {
   }
 
   Future<void> _playDeathAnim() async {
-    final img = await Flame.images.load('enemies/boss/summonDeath.png');
+    final img = await Flame.images.load('enemies/undead_boss/summonDeath.png');
     final spriteList = <Sprite>[];
     for (int i = 0; i < 3; i++) {
       spriteList.add(
