@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
+import 'package:flame/parallax.dart';
 import 'package:flame/events.dart'
     hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
 import 'package:flutter/gestures.dart'
@@ -56,21 +57,18 @@ class RockProjectile extends SpriteComponent
     super.update(dt);
     position.x += vx * dt;
     final slime = game.slime;
-    if (game.currentMap == 1 &&
-        !slime._dead &&
+    if (!slime._dead &&
         (position - slime.position).length < slime.size.x * 0.35) {
       slime.takeDamage(10);
       removeFromParent();
       return;
     }
-    if (game.currentMap == 2) {
-      final boss = game.boss;
-      if (!boss.dead &&
-          (position - boss.position).length < BossEnemy.frameSize * 1.2) {
-        boss.takeDamage(10);
-        removeFromParent();
-        return;
-      }
+    final boss = game.boss;
+    if (!boss.dead &&
+        (position - boss.position).length < BossEnemy.frameSize * 1.2) {
+      boss.takeDamage(10);
+      removeFromParent();
+      return;
     }
     if (position.x < -100 || position.x > game.size.x + 100) {
       removeFromParent();
@@ -375,24 +373,21 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       _comboHit2 = true;
     }
 
-    if (game.currentMap == 1) {
-      final slime = game.slime;
-      if (!slime._dead &&
-          (position - slime.position).length <
-              (size.x + slime.size.x) * 0.35) {
-        slime.takeDamage(10);
-      }
-    } else if (game.currentMap == 2) {
-      final boss = game.boss;
-      if (!boss.dead &&
-          (position - boss.position).length < (size.x + boss.size.x) * 0.5) {
-        boss.takeDamage(10);
-      }
-      for (final minion in game.children.whereType<BossMinion>().toList()) {
-        if (!minion.dead &&
-            (position - minion.position).length < (size.x + minion.size.x) * 0.5) {
-          minion.takeDamage(10);
-        }
+    final slime = game.slime;
+    if (!slime._dead &&
+        (position - slime.position).length <
+            (size.x + slime.size.x) * 0.35) {
+      slime.takeDamage(10);
+    }
+    final boss = game.boss;
+    if (!boss.dead &&
+        (position - boss.position).length < (size.x + boss.size.x) * 0.5) {
+      boss.takeDamage(10);
+    }
+    for (final minion in game.children.whereType<BossMinion>().toList()) {
+      if (!minion.dead &&
+          (position - minion.position).length < (size.x + minion.size.x) * 0.5) {
+        minion.takeDamage(10);
       }
     }
   }
@@ -887,20 +882,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     _dead = false;
     _deathAnimTimer = 0;
     opacity = 1;
-    // Switch to map 0 via game.update logic
-    game.currentMap = 0;
-    if (game.currentMap == 0) {
-      game.background1.removeFromParent();
-      game.add(game.background);
-      game.removeAll(game.children.whereType<DoubleJumpDust>());
-      game.slime.removeFromParent();
-      game.boss.health = game.boss.maxHealth;
-      game.boss.resetState();
-      game.boss.removeFromParent();
-      game.removeAll(game.children.whereType<BossMinion>());
-      game.add(game.chest);
-      game.add(game.fire);
-    }
+    game.removeAll(game.children.whereType<DoubleJumpDust>());
+    game.boss.health = game.boss.maxHealth;
+    game.boss.resetState();
     current = 'idle';
   }
 }
@@ -1119,9 +1103,7 @@ class NgocRongGame extends FlameGame
   final Vector2 _shakeOffset = Vector2.zero();
   double _shakeTimer = 0;
   late LocalPlayer player;
-  late SpriteComponent background;
-  late SpriteComponent background1;
-  late SpriteComponent background2;
+  late ParallaxComponent nightForestParallax;
   late SpriteComponent chest;
   late SpriteAnimationComponent fire;
   late Sprite chestOpenSprite;
@@ -1129,9 +1111,9 @@ class NgocRongGame extends FlameGame
   final CharacterConfig character;
   final ValueNotifier<bool> canOpenChest = ValueNotifier(false);
   final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
-  int currentMap = 0;
   late SlimeEnemy slime;
   late BossEnemy boss;
+  static const double mapWidth = 50000; // infinite world width
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
 
@@ -1139,31 +1121,31 @@ class NgocRongGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
-    final forest = await images.load('background/forest.png');
-    background = SpriteComponent(
-      sprite: Sprite(forest),
-      size: size.clone(),
+    // Load NightForest parallax via ParallaxComponent.load()
+    nightForestParallax = await ParallaxComponent.load(
+      [
+        ParallaxImageData('background/NightForest/Layers/1.png'),
+        ParallaxImageData('background/NightForest/Layers/2.png'),
+        ParallaxImageData('background/NightForest/Layers/3.png'),
+        ParallaxImageData('background/NightForest/Layers/4.png'),
+        ParallaxImageData('background/NightForest/Layers/5.png'),
+        ParallaxImageData('background/NightForest/Layers/6.png'),
+      ],
+      baseVelocity: Vector2(5, 0),
+      velocityMultiplierDelta: Vector2(0.1, 0),
+      repeat: ImageRepeat.repeat,
+      alignment: Alignment.bottomLeft,
+      fill: LayerFill.height,
+      size: size,
+      position: Vector2.zero(),
       priority: -1,
     );
-    add(background);
-
-    final forest1 = await images.load('background/forest_map1.png');
-    background1 = SpriteComponent(
-      sprite: Sprite(forest1),
-      size: size.clone(),
-      priority: -1,
-    );
-    final forest2 = await images.load('background/forest_map2.png');
-    background2 = SpriteComponent(
-      sprite: Sprite(forest2),
-      size: size.clone(),
-      priority: -1,
-    );
+    add(nightForestParallax);
 
     final chestImg = await images.load('environment/Chest.png');
     final chestPos = Vector2(
-      size.x * 0.7,
-      size.y - size.y * 0.1 - size.y * 0.2 + size.y * 0.08,
+      400, // fixed world X
+      size.y - size.y * 0.1 - size.y * 0.15 / 2,
     );
     chest = SpriteComponent(
       sprite: Sprite(
@@ -1192,14 +1174,14 @@ class NgocRongGame extends FlameGame
         ),
       ),
       size: Vector2.all(size.y * 0.12),
-      position: Vector2(size.x * 0.3, size.y - size.y * 0.1 - size.y * 0.06),
+      position: Vector2(200, size.y - size.y * 0.1 - size.y * 0.06), // fixed world X
       priority: 0,
     );
 
     final playerSize = size.y * 0.2;
     final groundHeight = size.y * 0.1;
     player = LocalPlayer(
-      position: Vector2(size.x / 2, size.y - groundHeight - playerSize / 2),
+      position: Vector2(mapWidth / 2, size.y - groundHeight - playerSize / 2),
       character: character,
       settings: settings,
     )..size = Vector2.all(playerSize);
@@ -1237,52 +1219,14 @@ class NgocRongGame extends FlameGame
   @override
   void update(double dt) {
     super.update(dt);
-    final minPlayerX = player.size.x / 2;
-    final maxPlayerX = size.x - player.size.x / 2;
-    if (currentMap == 0 && player.position.x >= maxPlayerX - 1) {
-      currentMap = 1;
-      removeAll(children.whereType<DoubleJumpDust>());
-      background.removeFromParent();
-      add(background1);
-      chest.removeFromParent();
-      fire.removeFromParent();
-      add(slime);
-      canOpenChest.value = false;
-      player.position.x = size.x * 0.1;
-    } else if (currentMap == 1 && player.position.x >= maxPlayerX - 1) {
-      currentMap = 2;
-      removeAll(children.whereType<DoubleJumpDust>());
-      background1.removeFromParent();
-      add(background2);
-      slime.removeFromParent();
-      add(boss);
-      player.position.x = size.x * 0.1;
-    } else if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
-      currentMap = 1;
-      removeAll(children.whereType<DoubleJumpDust>());
-      background2.removeFromParent();
-      add(background1);
-      boss.removeFromParent();
-      add(slime);
-      player.position.x = size.x * 0.9;
-    } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
-      currentMap = 0;
-      removeAll(children.whereType<DoubleJumpDust>());
-      background1.removeFromParent();
-      add(background);
-      slime.removeFromParent();
-      add(chest);
-      add(fire);
-      player.position.x = size.x * 0.9;
-    }
+    
+    // Single infinite world: no map-edge reset or map-switching.
+    
+    // Chest interaction check
+    final dist = (player.position - chest.position).length;
+    canOpenChest.value = dist < size.y * 0.12;
 
-    if (currentMap == 0) {
-      final dist = (player.position - chest.position).length;
-      canOpenChest.value = dist < size.y * 0.12;
-    } else {
-      canOpenChest.value = false;
-    }
-
+    // Camera shake
     if (_shakeTimer > 0) {
       _shakeTimer -= dt;
       camera.viewfinder.position -= _shakeOffset;
@@ -1301,16 +1245,14 @@ class NgocRongGame extends FlameGame
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     if (isLoaded) {
-      background.size = size.clone();
-      background1.size = size.clone();
-      background2.size = size.clone();
+      nightForestParallax.size = size;
       chest.size = Vector2.all(size.y * 0.15);
       fire.size = Vector2.all(size.y * 0.12);
       final playerSize = size.y * 0.2;
       final groundHeight = size.y * 0.1;
       player.size = Vector2.all(playerSize);
       player.position.y = size.y - groundHeight - playerSize / 2;
-      final maxX = size.x - playerSize / 2;
+      final maxX = mapWidth - playerSize / 2;
       if (player.position.x > maxX) player.position.x = maxX;
     }
   }
