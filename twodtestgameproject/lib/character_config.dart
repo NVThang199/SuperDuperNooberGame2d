@@ -91,19 +91,22 @@ class CharacterConfig {
     required this.doubleJumpDustStepTime,
   });
 
-  String get idlePath => '$basePath/$idleFile';
-  String get walkPath => '$basePath/$walkFile';
-  String get runPath => '$basePath/$runFile';
-  String get walkRunPushDustPath => '$basePath/$walkRunPushDustFile';
-  String get walkAttackPath => '$basePath/$walkAttackFile';
-  String get throwPath => '$basePath/$throwFile';
-  String get attack1Path => '$basePath/$attack1File';
-  String get attack2Path => '$basePath/$attack2File';
-  String get jumpPath => '$basePath/$jumpFile';
-  String get pushPath => '$basePath/$pushFile';
-  String get deathPath => '$basePath/$deathFile';
-  String get hurtPath => '$basePath/$hurtFile';
-  String get doubleJumpDustPath => '$basePath/$doubleJumpDustFile';
+  String get idlePath => idleFile.isEmpty ? '' : '$basePath/$idleFile';
+  String get walkPath => walkFile.isEmpty ? '' : '$basePath/$walkFile';
+  String get runPath => runFile.isEmpty ? '' : '$basePath/$runFile';
+  String get walkRunPushDustPath =>
+      walkRunPushDustFile.isEmpty ? '' : '$basePath/$walkRunPushDustFile';
+  String get walkAttackPath =>
+      walkAttackFile.isEmpty ? '' : '$basePath/$walkAttackFile';
+  String get throwPath => throwFile.isEmpty ? '' : '$basePath/$throwFile';
+  String get attack1Path => attack1File.isEmpty ? '' : '$basePath/$attack1File';
+  String get attack2Path => attack2File.isEmpty ? '' : '$basePath/$attack2File';
+  String get jumpPath => jumpFile.isEmpty ? '' : '$basePath/$jumpFile';
+  String get pushPath => pushFile.isEmpty ? '' : '$basePath/$pushFile';
+  String get deathPath => deathFile.isEmpty ? '' : '$basePath/$deathFile';
+  String get hurtPath => hurtFile.isEmpty ? '' : '$basePath/$hurtFile';
+  String get doubleJumpDustPath =>
+      doubleJumpDustFile.isEmpty ? '' : '$basePath/$doubleJumpDustFile';
 }
 
 final Vector2 _ts = Vector2(32, 32);

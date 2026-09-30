@@ -362,12 +362,24 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
             character.textureSize,
             loop: false,
           );
-    final walkAttackPath = character.walkAttackPath.isEmpty
+    final walkAttackPath = character.walkAttackFile.isEmpty
         ? character.attack1Path
         : character.walkAttackPath;
-    final pushPath = character.pushPath.isEmpty
+    final walkAttackAmount = character.walkAttackFile.isEmpty
+        ? character.attack1Amount
+        : character.walkAttackAmount;
+    final walkAttackStepTime = character.walkAttackFile.isEmpty
+        ? character.attack1StepTime
+        : character.walkAttackStepTime;
+    final pushPath = character.pushFile.isEmpty
         ? character.idlePath
         : character.pushPath;
+    final pushAmount = character.pushFile.isEmpty
+        ? character.idleAmount
+        : character.pushAmount;
+    final pushStepTime = character.pushFile.isEmpty
+        ? character.idleStepTime
+        : character.pushStepTime;
 
     animations = {
       'idle': _loadAnim(
@@ -392,8 +404,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       'hurt': _hurtAnimation!,
       'walkAttack': _loadAnim(
         walkAttackPath,
-        character.walkAttackAmount,
-        character.walkAttackStepTime,
+        walkAttackAmount,
+        walkAttackStepTime,
         character.textureSize,
       ),
       'attack1': _loadAnim(
@@ -426,8 +438,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       ),
       'push': _loadAnim(
         pushPath,
-        character.pushAmount,
-        character.pushStepTime,
+        pushAmount,
+        pushStepTime,
         character.textureSize,
         loop: false,
       ),
