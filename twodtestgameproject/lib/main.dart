@@ -397,6 +397,7 @@ class _GameScreenState extends State<GameScreen> {
               builder: (ctx, snap) {
                 if (snap.connectionState != ConnectionState.done ||
                     game.isPaused.value ||
+                    game.player.isDead ||
                     !game.settings.showMobileControls) {
                   return const SizedBox.shrink();
                 }
@@ -404,44 +405,7 @@ class _GameScreenState extends State<GameScreen> {
                   valueListenable: game.player.weaponTypeVersion,
                   builder: (ctx, version, _) => Stack(
                     children: [
-                      _btn(
-                        size,
-                        OverlayButtonId.moveLeft,
-                        _RoundControl(
-                          icon: Icons.keyboard_arrow_left,
-                          label: 'TRÁI',
-                          onPressed: () =>
-                              game.player.isDead ? null : _move(-1),
-                          onReleased: () =>
-                              game.player.isDead ? null : _move(0),
-                        ),
-                      ),
-                      _btn(
-                        size,
-                        OverlayButtonId.moveRight,
-                        _RoundControl(
-                          icon: Icons.keyboard_arrow_right,
-                          label: 'PHẢI',
-                          onPressed: () => game.player.isDead ? null : _move(1),
-                          onReleased: () =>
-                              game.player.isDead ? null : _move(0),
-                        ),
-                      ),
-                      _btn(
-                        size,
-                        OverlayButtonId.shield,
-                        _RoundControl(
-                          icon: Icons.shield,
-                          label: 'KHIÊN',
-                          color: Colors.grey,
-                          onPressed: () => game.player.isDead
-                              ? null
-                              : game.player.setShielding(true),
-                          onReleased: () => game.player.isDead
-                              ? null
-                              : game.player.setShielding(false),
-                        ),
-                      ),
+                      _joystick(size, game),
                       _btn(
                         size,
                         OverlayButtonId.run,
@@ -474,13 +438,13 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                       _btn(
                         size,
-                        OverlayButtonId.jump,
+                        OverlayButtonId.roll,
                         _RoundControl(
-                          icon: Icons.keyboard_arrow_up,
-                          label: 'NHẢY',
-                          color: Colors.orange,
+                          icon: Icons.cached,
+                          label: 'LĂN',
+                          color: Colors.purple,
                           onPressed: () =>
-                              game.player.isDead ? null : game.player.jump(),
+                              game.player.isDead ? null : game.player.roll(),
                         ),
                       ),
                     ],
@@ -603,18 +567,114 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Widget _joystick(Size size, NgocRongGame game) {
+    final cfg = _layout.buttons[OverlayButtonId.joystick]!;
+    final diameter = 120 * cfg.scale;
+    return Positioned(
+      left: (cfg.anchor.dx * size.width - diameter / 2).clamp(
+        0.0,
+        size.width - diameter,
+      ),
+      top: (cfg.anchor.dy * size.height - diameter / 2).clamp(
+        0.0,
+        size.height - diameter,
+      ),
+      child: Opacity(
+        opacity: cfg.opacity,
+        child: _VirtualJoystick(
+          size: diameter,
+          onChanged: (dx, dy) {
+            if (game.player.isDead) return;
+            _move(dx.abs() < 0.15 ? 0 : dx);
+            game.player.setCrouching(dy > 0.3);
+            if (dy < -0.3) game.player.jump();
+          },
+          onReleased: () {
+            _move(0);
+            game.player.setCrouching(false);
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _btn(Size size, OverlayButtonId id, Widget child) {
     final c = _layout.buttons[id]!;
-    final w = 72 * c.scale;
+    final scale = c.scale;
+    final w = 72 * scale;
     return Positioned(
       left: (c.anchor.dx * size.width - w / 2).clamp(0.0, size.width - w),
       top: (c.anchor.dy * size.height - w / 2).clamp(0.0, size.height - w),
       child: Opacity(
         opacity: c.opacity,
-        child: Transform.scale(scale: c.scale, child: child),
+        child: Transform.scale(scale: scale, child: child),
       ),
     );
   }
+}
+
+class _VirtualJoystick extends StatefulWidget {
+  const _VirtualJoystick({
+    required this.size,
+    required this.onChanged,
+    required this.onReleased,
+  });
+  final double size;
+  final void Function(double, double) onChanged;
+  final VoidCallback onReleased;
+
+  @override
+  State<_VirtualJoystick> createState() => _VirtualJoystickState();
+}
+
+class _VirtualJoystickState extends State<_VirtualJoystick> {
+  Offset knob = Offset.zero;
+
+  void update(Offset p) {
+    final center = Offset(widget.size / 2, widget.size / 2);
+    final delta = p - center;
+    final radius = widget.size * 0.32;
+    final limited = delta.distance > radius
+        ? Offset.fromDirection(delta.direction, radius)
+        : delta;
+    setState(() => knob = limited);
+    widget.onChanged(limited.dx / radius, limited.dy / radius);
+  }
+
+  void reset() {
+    setState(() => knob = Offset.zero);
+    widget.onReleased();
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onPanStart: (d) => update(d.localPosition),
+    onPanUpdate: (d) => update(d.localPosition),
+    onPanEnd: (_) => reset(),
+    onPanCancel: reset,
+    child: Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white30, width: 2),
+      ),
+      child: Transform.translate(
+        offset: knob,
+        child: Center(
+          child: Container(
+            width: widget.size * 0.38,
+            height: widget.size * 0.38,
+            decoration: const BoxDecoration(
+              color: Colors.white30,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _RoundControl extends StatefulWidget {

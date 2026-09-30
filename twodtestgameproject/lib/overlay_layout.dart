@@ -4,12 +4,15 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum OverlayButtonId {
+  joystick,
   moveLeft,
   moveRight,
-  shield,
-  run,
   attack,
+  shield,
   jump,
+  crouch,
+  roll,
+  run,
 }
 
 class OverlayButtonConfig {
@@ -48,6 +51,11 @@ class OverlayLayout {
   final Map<OverlayButtonId, OverlayButtonConfig> buttons;
   const OverlayLayout(this.buttons);
   static OverlayLayout defaults() => OverlayLayout({
+    OverlayButtonId.joystick: const OverlayButtonConfig(
+      anchor: Offset(0.14, 0.78),
+      scale: 1.0,
+      opacity: 0.5,
+    ),
     OverlayButtonId.moveLeft: const OverlayButtonConfig(
       anchor: Offset(0.06, 0.86),
       scale: 0.8,
@@ -60,12 +68,20 @@ class OverlayLayout {
       anchor: Offset(0.73, 0.70),
       scale: 0.8,
     ),
-      OverlayButtonId.run: const OverlayButtonConfig(
-        anchor: Offset(0.84, 0.70),
-        scale: 0.8,
-      ),
-      OverlayButtonId.jump: const OverlayButtonConfig(
+    OverlayButtonId.run: const OverlayButtonConfig(
+      anchor: Offset(0.84, 0.70),
+      scale: 0.8,
+    ),
+    OverlayButtonId.jump: const OverlayButtonConfig(
       anchor: Offset(0.79, 0.88),
+      scale: 0.8,
+    ),
+    OverlayButtonId.crouch: const OverlayButtonConfig(
+      anchor: Offset(0.89, 0.88),
+      scale: 0.8,
+    ),
+    OverlayButtonId.roll: const OverlayButtonConfig(
+      anchor: Offset(0.84, 0.88),
       scale: 0.8,
     ),
     OverlayButtonId.attack: const OverlayButtonConfig(

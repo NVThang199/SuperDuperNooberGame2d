@@ -14,39 +14,46 @@ flutter build windows    # production desktop
 ## Architecture
 
 **Core files:**
-- `lib/main.dart` — Entry point, CharacterSelection → GameScreen
-- `lib/game.dart` — NgocRongGame (Flame), LocalPlayer, SlimeEnemy, combat, controls (1470 lines)
-- `lib/boss.dart` — BossEnemy AI, skills, health (522 lines)
-- `lib/inventory.dart` — InventoryItem, EquipmentSlot, stats, UI (571 lines)
-- `lib/character_config.dart` — 3 characters (dude/owlet/pink), weapon types (sword/bow/none)
-- `lib/overlay_layout.dart` — Mobile/desktop button layout system
+- `lib/main.dart` — Entry point, CharacterSelection → GameScreen, mobile UI (joystick + buttons)
+- `lib/game.dart` — NgocRongGame (Flame), LocalPlayer, SlimeEnemy, combat, physics (~1700 lines)
+- `lib/boss.dart` — BossEnemy AI, skills, minions, 2-hit attack combo (~520 lines)
+- `lib/inventory.dart` — InventoryItem, EquipmentSlot, stats, UI (~570 lines)
+- `lib/character_config.dart` — FreeKnight character with 50+ animations (roll, crouch, fall, etc.)
+- `lib/overlay_layout.dart` — Mobile/desktop button layout, customizable via overlay editor
+- `lib/overlay_editor.dart` — Drag-drop UI editor for joystick + buttons (position/scale/opacity)
 - `lib/settings_page.dart` — Key bindings, mobile controls toggle
-- `lib/shield_badge.dart`, `lib/stamina_config.dart` — UI components
+- `lib/shield_badge.dart`, `lib/stamina_config.dart` — UI components, stamina costs
 
 **Character system:**
-- 3 base characters: Dude Monster, Owlet Monster, Pink Monster
-- 3 weapon variants each: sword, bow, none
-- Stats: HP, MP, Stamina, Damage, Defense (from inventory)
-- Animations: idle, walk, jump, double_jump, attack (3-hit combo), shield, squat, hurt, death
+- **Current**: FreeKnight only (1.5× base size scaled to 2× final = player size 0.6 × screen height)
+- **Animations**: idle, walk, run, jump, fall, attack1/2/combo, crouch, crouchWalk, crouchAttack, crouchTransition, roll, shield/push, hurt, death
+- **Stats**: HP=100, Stamina=100, damage/defense from inventory
+- **Stamina costs**: attack=20, roll=30, jump=20, run=0.8/frame
 
 **Combat system:**
-- Sword: 20 base damage, 3-hit combo
-- Bow: 18 base damage, arrow projectiles
-- Shield: blocks damage while held, can break
-- Dash/Run: stamina cost
-- Double jump with dust VFX
+- **Sword**: 20 base damage, 2-hit combo (attack1 → attack2), +5 damage when crouching
+- **Bow**: 18 base damage, arrow projectiles
+- **Roll**: Dark Souls style with iframe (frame 3-8), locks momentum during roll, 2s cooldown regen penalty
+- **Shield**: blocks damage, consumes stamina; breaks when stamina=0 → stun
+- **Crouch attack**: +5 damage bonus
+
+**Physics:**
+- **Jump**: `impulse = -2.07 × size.y`, `gravity = 5.11 × size.y`, costs 20 stamina
+- **Movement**: `speed = 10/12 × size.y`, lerp factor=6 (smooth air control)
+- **Ground**: `y = screen.height - 0.1×height - size.y/2`
 
 **Enemy system:**
-- Slime (map 1): 30 damage, basic AI
-- Undead Boss (map 2): 200 HP, 2 skills, aggro range 80, minion summon
+- **Slime** (map 1): 30 damage, size=0.27×screen.height, respawns after 5s
+- **Undead Boss** (map 2): 200 HP, size×1.5 (sizeMultiplier=3.6), 2-hit attack combo (frame 3 & 10), skill1, summon minions, aggro range=240
 
-**Inventory system:**
-- 7 equipment slots: ring1/2, helm, weapon1/2, armor, belt
-- Stats bonus: HP, MP, Stamina, Damage, Defense
-- Item loader from `assets/item/`
+**Mobile Controls:**
+- **Joystick**: Custom `_VirtualJoystick` widget (left/right = move, up = jump, down = crouch)
+- **Buttons**: run, attack, roll (configurable in overlay editor)
+- **Overlay editor**: Drag to reposition, sliders for scale/opacity per button
+- **Settings removed**: Global buttonOpacity/buttonSize sliders (redundant with per-button customization)
 
 **Map system:**
-- Map 0: Character selection
+- Map 0: Starting area (chest, fire)
 - Map 1: Forest (slime enemy)
 - Map 2: Boss arena (undead boss)
 - Backgrounds: `assets/images/background/forest*.png`
@@ -96,6 +103,14 @@ flame: ^1.38.2                   # Game engine
 web_socket_channel: ^3.0.3       # Multiplayer (unused?)
 shared_preferences: ^2.5.5       # Settings persistence
 ```
+
+## Animation Safety
+
+- Chỉ gán `current` bằng key tồn tại trong `animations`.
+- Animation tùy chọn phải có fallback hợp lệ như `idle`, `walk`, hoặc `jump`.
+- Kiểm tra asset thật trong `assets/images/` trước khi thêm key animation; không giả định file tồn tại.
+- Input mobile phải gọi public method của `LocalPlayer`, không truy cập state private.
+- Chạy `flutter analyze` sau mọi thay đổi animation hoặc control.
 
 ## Coding Standards
 - Scale all objects relative to viewport/player size

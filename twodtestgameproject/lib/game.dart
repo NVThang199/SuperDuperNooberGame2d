@@ -43,11 +43,15 @@ class GameSettings {
   LogicalKeyboardKey chestKey = LogicalKeyboardKey.keyR;
   LogicalKeyboardKey inventoryKey = LogicalKeyboardKey.keyI;
   LogicalKeyboardKey squatKey = LogicalKeyboardKey.arrowDown;
+  LogicalKeyboardKey rollKey = LogicalKeyboardKey.keyC;
+  String rollKeyLabel = 'C';
   bool showMobileControls =
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
   bool mouseControl = true;
+  double buttonOpacity = 0.5;
+  double buttonSize = 1.0;
 }
 
 class DoubleJumpDust extends SpriteAnimationComponent
@@ -112,9 +116,9 @@ class ArrowProjectile extends SpriteComponent
 
 class LocalPlayer extends SpriteAnimationGroupComponent<String>
     with HasGameReference<NgocRongGame>, KeyboardHandler {
-  double get jumpImpulse => -size.y * 13;
-  double get gravity => size.y * 65;
-  double get movementSpeed => size.y * 25 / 12;
+  double get jumpImpulse => -size.y * 2.07;
+  double get gravity => size.y * 5.11;
+  double get movementSpeed => size.y * 10 / 12;
 
   double vx = 0;
   double vy = 0;
@@ -128,10 +132,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   double _lastInput = 0;
   double _coyoteTimer = 0;
   double _jumpBuffer = 0;
+  double _jumpCooldown = 0;
   double _targetVx = 0;
   final GameSettings settings;
   final CharacterConfig character;
-  bool _doubleJumpUsed = false;
   final Set<LogicalKeyboardKey> _keysPressed = {};
   final Set<double> _movementInputs = {};
   bool _shieldBroken = false;
@@ -157,6 +161,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   late ShieldBadge _shieldBadge;
   double _runDustTimer = 0;
   bool _squatting = false;
+  bool _crouchTransitioning = false;
+  bool _rolling = false;
+  double _rollCooldownDelay = 0;
+  double _crouchTransitionTimer = 0;
+  double _crouchTransitionDuration = 0;
+  double _rollTimer = 0;
+  bool _iframeActive = false;
+  bool _falling = false;
 
   int _comboStep = 0;
   bool _comboHit1 = false;
@@ -246,7 +258,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     if (kind == 'none' || character.id == 'free_knight') {
       animations = _baseAnimations;
       current = 'idle';
-      size = Vector2(game.size.y * 0.3 * aspect, game.size.y * 0.3);
+      size = Vector2(game.size.y * 0.6 * aspect, game.size.y * 0.6);
       return;
     }
     final isSword = kind == 'sword';
@@ -315,7 +327,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       character.idlePath,
       character.walkPath,
       character.runPath,
-      if (character.walkRunPushDustFile.isNotEmpty) character.walkRunPushDustPath,
+      if (character.walkRunPushDustFile.isNotEmpty)
+        character.walkRunPushDustPath,
       if (character.walkAttackFile.isNotEmpty) character.walkAttackPath,
       character.attack1Path,
       character.attack2Path,
@@ -324,6 +337,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       if (character.doubleJumpDustFile.isNotEmpty) character.doubleJumpDustPath,
       character.deathPath,
       character.hurtPath,
+      if (character.rollFile.isNotEmpty) character.rollPath,
+      if (character.crouchFile.isNotEmpty) character.crouchPath,
+      if (character.crouchWalkFile.isNotEmpty) character.crouchWalkPath,
+      if (character.crouchAttackFile.isNotEmpty) character.crouchAttackPath,
+      if (character.fallFile.isNotEmpty) character.fallPath,
     ];
     await game.images.loadAll(paths);
 
@@ -450,6 +468,44 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           loop: false,
         ),
       ),
+      if (character.rollFile.isNotEmpty)
+        'roll': _loadAnim(
+          character.rollPath,
+          character.rollFrameCount,
+          character.rollStepTime,
+          character.textureSize,
+          loop: false,
+        ),
+      if (character.crouchFile.isNotEmpty)
+        'crouch': _loadAnim(
+          character.crouchPath,
+          character.crouchFrameCount,
+          character.crouchStepTime,
+          character.textureSize,
+        ),
+      if (character.crouchWalkFile.isNotEmpty)
+        'crouchWalk': _loadAnim(
+          character.crouchWalkPath,
+          character.crouchWalkFrameCount,
+          character.crouchWalkStepTime,
+          character.textureSize,
+        ),
+      if (character.crouchAttackFile.isNotEmpty)
+        'crouchAttack': _loadAnim(
+          character.crouchAttackPath,
+          character.crouchAttackFrameCount,
+          character.crouchAttackStepTime,
+          character.textureSize,
+          loop: false,
+        ),
+      if (character.fallFile.isNotEmpty)
+        'fall': _loadAnim(
+          character.fallPath,
+          character.fallFrameCount,
+          character.fallStepTime,
+          character.textureSize,
+          loop: false,
+        ),
     };
 
     _baseAnimations = Map<String, SpriteAnimation>.from(animations!);
@@ -471,12 +527,13 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   void refreshWeaponAnimation() {
     if (!isLoaded) return;
     final aspect = character.textureSize.x / character.textureSize.y;
-    final scale = (game.inventory.weaponType == 'none' || character.id == 'free_knight')
+    final scale =
+        (game.inventory.weaponType == 'none' || character.id == 'free_knight')
         ? 1.0
         : (42 / 32);
     size = Vector2(
-      game.size.y * 0.3 * aspect * scale,
-      game.size.y * 0.3 * scale,
+      game.size.y * 0.3 * aspect * scale * 3.0,
+      game.size.y * 0.3 * scale * 3.0,
     );
     _loadAnimations().then((_) {
       current = 'idle';
@@ -486,16 +543,16 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   String _attackAnimForCombo(int step) {
     if (_squatting &&
         isOnGround &&
-        animations?.containsKey('squatAttack') == true)
-      return 'squatAttack';
+        animations?.containsKey('crouchAttack') == true)
+      return 'crouchAttack';
     if (!isOnGround && animations?.containsKey('jumpAttack') == true)
       return 'jumpAttack';
+    if (step == 2 && animations?.containsKey('attack2') == true)
+      return 'attack2';
     if (_running && _lastInput.abs() > 0.1) {
       final runAttack = step == 2 ? 'runAttack2' : 'runAttack1';
       if (animations?.containsKey(runAttack) == true) return runAttack;
     }
-    if (step == 2 && animations?.containsKey('attack2') == true)
-      return 'attack2';
     if (_lastInput.abs() > 0.1) return 'walkAttack';
     return 'attack1';
   }
@@ -530,7 +587,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     }
 
     final baseDamage = _getWeaponBaseDamage();
-    final totalDamage = baseDamage + dmgBonus;
+    final totalDamage = baseDamage + dmgBonus + (_squatting ? 5 : 0);
 
     if (game.currentMap == 1) {
       final slime = game.slime;
@@ -585,7 +642,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void attack() {
-    if (_stunned || _shielding) return;
+    if (_dead || _stunned || _shielding) return;
     if (!_canUseStamina(StaminaConfig.attackCost)) return;
     if (_attacking) {
       if (game.inventory.weaponType != 'bow' &&
@@ -593,7 +650,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           _comboWindow <= 0.18) {
         _comboStep = 2;
         _comboWindow = 0.48;
-        current = 'attack2';
+        current = _attackAnimForCombo(2);
         consumeStamina(StaminaConfig.attackCost);
         _dealMeleeDamage(2);
       }
@@ -622,6 +679,23 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     current = _attackAnimForCombo(1);
   }
 
+  void roll() {
+    if (_dead || !_canUseStamina(StaminaConfig.rollCost) ||
+        _rolling ||
+        _stunned ||
+        !isOnGround) {
+      return;
+    }
+    stamina -= StaminaConfig.rollCost;
+    staminaNotifier.value = stamina;
+    _rolling = true;
+    _rollTimer = 0;
+    _iframeActive = false;
+    _rollCooldownDelay = 2.0;
+    _targetVx = direction * movementSpeed;
+    _updateAnimation();
+  }
+
   void setAttackHeld(bool active) {
     _attackHeld = active;
     if (active) attack();
@@ -644,16 +718,38 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void toggleShield() => setShielding(!_shielding);
 
+  void setCrouching(bool active) {
+    if (_dead || active == _squatting) return;
+    if (active && animations?.containsKey('crouchTransition') == true) {
+      _crouchTransitioning = true;
+      _crouchTransitionTimer = 0;
+      _crouchTransitionDuration =
+          character.crouchTransitionStepTime *
+          character.crouchTransitionFrameCount;
+    }
+    _squatting = active;
+    if (!_attacking) _updateAnimationState();
+  }
+
+  void toggleCrouch() {
+    setCrouching(!_squatting);
+  }
+
   void setRunning(bool active) {
+    if (_dead) return;
     _running = active && _canUseStamina(0);
     _applySpeed();
     if (!_attacking) _updateAnimationState();
   }
 
   void _applySpeed() {
+    if (_rolling) return;
     double runMul = _running && isOnGround ? 1.7 : 1.0;
     double multiplier = _attacking ? 0.2 : (_shielding ? 0.3 : runMul);
     _targetVx = _lastInput * movementSpeed * multiplier;
+    if (_squatting && _targetVx.abs() > 0) {
+      _targetVx *= 0.5;
+    }
     if (_lastInput < -0.1) {
       direction = -1;
       flipAround();
@@ -677,22 +773,25 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     if (_staminaExhausted && _hasRecoveredStamina) {
       _staminaExhausted = false;
     }
+    if (_rollCooldownDelay > 0) {
+      _rollCooldownDelay -= dt;
+    }
     if (_staminaRegenDelay > 0) {
       _staminaRegenDelay -= dt;
-      stamina = (stamina + StaminaConfig.activeRegenRate * dt).clamp(
-        0.0,
-        maxStamina,
-      );
+      final regenRate = _rollCooldownDelay > 0
+          ? 5.0
+          : StaminaConfig.activeRegenRate;
+      stamina = (stamina + regenRate * dt).clamp(0.0, maxStamina);
     } else if (_shielding) {
       stamina = (stamina + StaminaConfig.shieldRegenRate * dt).clamp(
         0.0,
         maxStamina,
       );
     } else {
-      stamina = (stamina + StaminaConfig.idleRegenRate * dt).clamp(
-        0.0,
-        maxStamina,
-      );
+      final regenRate = _rollCooldownDelay > 0
+          ? 5.0
+          : StaminaConfig.idleRegenRate;
+      stamina = (stamina + regenRate * dt).clamp(0.0, maxStamina);
     }
     if (_shieldBroken && stamina >= maxStamina * 0.5) {
       _shieldBroken = false;
@@ -700,18 +799,69 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     staminaNotifier.value = stamina;
   }
 
+  void _updateAnimation() {
+    if (_rolling) {
+      if (animations?.containsKey('roll') == true) {
+        current = 'roll';
+      }
+      return;
+    }
+
+    if (_falling && !isOnGround) {
+      if (animations?.containsKey('fall') == true) {
+        current = 'fall';
+      }
+      return;
+    }
+
+    if (_crouchTransitioning) {
+      if (animations?.containsKey('crouchTransition') == true) {
+        current = 'crouchTransition';
+      }
+      return;
+    }
+
+    if (_squatting) {
+      if (_attacking) {
+        if (animations?.containsKey('crouchAttack') == true) {
+          current = 'crouchAttack';
+        }
+        return;
+      }
+
+      if (_targetVx.abs() > 0) {
+        if (animations?.containsKey('crouchWalk') == true) {
+          current = 'crouchWalk';
+        }
+        return;
+      }
+
+      if (animations?.containsKey('crouch') == true) {
+        current = 'crouch';
+      }
+      return;
+    }
+
+    _updateAnimationState();
+  }
+
   void _updateAnimationState() {
+    if (animations == null) return;
     if (_attacking) return;
+    if (_rolling || (_falling && !isOnGround) || _squatting) {
+      _updateAnimation();
+      return;
+    }
     final hasMovementInput =
         _keysPressed.contains(settings.leftKey) ||
         _keysPressed.contains(settings.rightKey) ||
         _lastInput.abs() > 0.01;
     if (_squatting && isOnGround) {
-      current = 'squat';
+      current = animations!.containsKey('crouch') ? 'crouch' : 'idle';
     } else if (_shielding) {
-      current = 'push';
+      current = animations!.containsKey('push') ? 'push' : 'idle';
     } else if (!isOnGround) {
-      current = _doubleJumpUsed ? 'doubleJump' : 'jump';
+      current = 'jump';
     } else if (hasMovementInput) {
       current = _running ? 'run' : 'walk';
     } else {
@@ -720,6 +870,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void setHorizontalInput(double input) {
+    if (_dead) return;
     if (input == 0) {
       _movementInputs.clear();
     } else {
@@ -742,18 +893,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     setHorizontalInput(right == left ? 0 : (right ? 1 : -1));
   }
 
-  void _doJump({bool isDouble = false}) {
+  void _doJump() {
+    if (_jumpCooldown > 0 || !_canUseStamina(StaminaConfig.jumpCost)) return;
+    consumeStamina(StaminaConfig.jumpCost);
     vy = jumpImpulse;
     isOnGround = false;
     _coyoteTimer = 0;
     _jumpBuffer = 0;
-    if (isDouble) {
-      _doubleJumpUsed = true;
-      current = 'doubleJump';
-      _spawnDust();
-    } else {
-      current = 'jump';
-    }
+    _jumpCooldown = 0.5;
+    current = 'jump';
   }
 
   void _spawnDust() {
@@ -784,15 +932,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void jump() {
+    if (_dead) return;
     final canJump = isOnGround || _coyoteTimer > 0;
-    if (canJump) {
-      _doubleJumpUsed = false;
-      _doJump(isDouble: false);
-    } else if (!_doubleJumpUsed) {
-      if (!_canUseStamina(StaminaConfig.doubleJumpCost)) return;
-      consumeStamina(StaminaConfig.doubleJumpCost);
-      _doJump(isDouble: true);
-    } else {
+    if (canJump && _jumpCooldown <= 0 && _canUseStamina(StaminaConfig.jumpCost)) {
+      _doJump();
+    } else if (_jumpCooldown <= 0 && _canUseStamina(StaminaConfig.jumpCost)) {
       _jumpBuffer = 0.12;
     }
   }
@@ -869,7 +1013,9 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       else if (event.logicalKey == settings.squatKey) {
         _squatting = true;
         _updateAnimationState();
-      } else if (event.logicalKey == settings.shieldKey)
+      } else if (event.logicalKey == settings.rollKey)
+        roll();
+      else if (event.logicalKey == settings.shieldKey)
         setShielding(true);
       else if (event.logicalKey == settings.runKey) {
         _keysPressed.add(event.logicalKey);
@@ -929,16 +1075,49 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       return;
     }
     if (_coyoteTimer > 0) _coyoteTimer = (_coyoteTimer - dt).clamp(0, 0.12);
+    if (_jumpCooldown > 0) _jumpCooldown = (_jumpCooldown - dt).clamp(0, 0.5);
     if (_jumpBuffer > 0) {
       _jumpBuffer -= dt;
       if (_jumpBuffer <= 0)
         _jumpBuffer = 0;
-      else if (isOnGround || _coyoteTimer > 0) {
-        _doubleJumpUsed = false;
+      else if ((isOnGround || _coyoteTimer > 0) && _jumpCooldown <= 0) {
         _doJump();
       }
     }
-    vx = lerpDouble(vx, _targetVx, (12 * dt).clamp(0.0, 1.0))!;
+    if (_crouchTransitioning) {
+      _crouchTransitionTimer += dt;
+      if (_crouchTransitionTimer >= _crouchTransitionDuration) {
+        _crouchTransitioning = false;
+      }
+    }
+    if (vy > 0 && !isOnGround) {
+      _falling = true;
+    } else {
+      _falling = false;
+    }
+
+    if (_rolling) {
+      _rollTimer += dt;
+      final frame = (_rollTimer / character.rollStepTime).floor();
+
+      if (frame >= 3 && frame <= 8) {
+        _iframeActive = true;
+      } else {
+        _iframeActive = false;
+      }
+
+      if (frame >= character.rollFrameCount) {
+        _rolling = false;
+        _rollTimer = 0;
+        _iframeActive = false;
+        _targetVx = 0;
+        vx = 0;
+        _applySpeed();
+        _updateAnimation();
+      }
+    }
+
+    vx = lerpDouble(vx, _targetVx, (6 * dt).clamp(0.0, 1.0))!;
     vy += gravity * dt;
     final wasOnGround = isOnGround;
     position.x += vx * dt;
@@ -951,10 +1130,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       vy = 0;
       final justLanded = !isOnGround;
       isOnGround = true;
-      if (justLanded) _doubleJumpUsed = false;
       if (_jumpBuffer > 0) {
-        _doubleJumpUsed = false;
-        _doJump();
+        if (_jumpCooldown <= 0 && _canUseStamina(StaminaConfig.jumpCost)) {
+          _doJump();
+        }
       } else if (!_attacking) {
         _updateAnimationState();
       }
@@ -1014,7 +1193,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           _comboWindow <= 0.08) {
         _comboStep = 2;
         _comboWindow = 0.48;
-        current = 'attack2';
+        current = _attackAnimForCombo(2);
         _dealMeleeDamage(2);
       }
 
@@ -1031,7 +1210,29 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     }
   }
 
+  void takeBossAttackDamage(double damage) {
+    if (_iframeActive || _shielding || _hurt || _dead) return;
+    final actualDamage = (damage - defenseBonus).clamp(0, damage);
+    health = (health - actualDamage).clamp(0, maxHealth);
+    healthNotifier.value = health;
+    if (health <= 0) {
+      _dead = true;
+      _deathAnimTimer = 0.8;
+      _respawnTimer = 5.0;
+      _attacking = false;
+      current = 'death';
+    } else {
+      _hurt = true;
+      _hurtTimer = character.hurtStepTime * character.hurtAmount;
+      _attacking = false;
+      current = 'hurt';
+    }
+  }
+
   void takeDamage(double damage) {
+    if (_iframeActive) {
+      return;
+    }
     if (_shielding || _invincibilityTimer > 0 || _hurt || _dead) {
       if (_shielding) damageShield(damage);
       return;
@@ -1187,7 +1388,7 @@ class SlimeEnemy extends SpriteAnimationComponent
           healthNotifier.value = health;
           position.setValues(
             game.size.x * 0.5,
-            game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28,
+            game.size.y - game.size.y * 0.1 - size.y / 2,
           );
           opacity = 1;
           _attacking = false;
@@ -1378,7 +1579,7 @@ class NgocRongGame extends FlameGame
       priority: 0,
     );
 
-    final playerSize = size.y * 0.2;
+    final playerSize = size.y * 0.4;
     final groundHeight = size.y * 0.1;
     player = LocalPlayer(
       position: Vector2(size.x / 2, size.y - groundHeight - playerSize / 2),
@@ -1392,8 +1593,8 @@ class NgocRongGame extends FlameGame
     add(fire);
 
     slime = SlimeEnemy(position: player.position.clone(), player: player)
-      ..size = Vector2.all(player.size.y * 1.35);
-    slime.position.y = player.position.y + player.size.y * 0.45;
+      ..size = Vector2.all(size.y * 0.27);
+    slime.position.y = player.position.y;
 
     boss = BossEnemy(
       game: this,
@@ -1488,16 +1689,17 @@ class NgocRongGame extends FlameGame
       background2.size = size.clone();
       chest.size = Vector2.all(size.y * 0.15);
       fire.size = Vector2.all(size.y * 0.12);
-      final playerSize = size.y * 0.3;
+       final playerSize = size.y * 0.6;
       final groundHeight = size.y * 0.1;
-      final aspect = player.character.textureSize.x / player.character.textureSize.y;
-      final scale = (inventory.weaponType == 'none' || player.character.id == 'free_knight')
+      final aspect =
+          player.character.textureSize.x / player.character.textureSize.y;
+      final scale =
+          (inventory.weaponType == 'none' ||
+              player.character.id == 'free_knight')
           ? 1.0
           : (42 / 32);
-      player.size = Vector2(
-        playerSize * aspect * scale,
-        playerSize * scale,
-      );
+      player.size = Vector2(playerSize * aspect * scale, playerSize * scale);
+      slime.size = Vector2.all(size.y * 0.27);
       player.position.y = size.y - groundHeight - playerSize / 2;
       final maxX = size.x - playerSize / 2;
       if (player.position.x > maxX) player.position.x = maxX;
