@@ -196,8 +196,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
        super(
          position: position,
          size: Vector2(
-           96 * (character.textureSize.x / character.textureSize.y),
-           96,
+           144 * (character.textureSize.x / character.textureSize.y),
+           144,
          ),
          anchor: Anchor.center,
          priority: 5,
@@ -246,7 +246,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     if (kind == 'none' || character.id == 'free_knight') {
       animations = _baseAnimations;
       current = 'idle';
-      size = Vector2(game.size.y * 0.2 * aspect, game.size.y * 0.2);
+      size = Vector2(game.size.y * 0.3 * aspect, game.size.y * 0.3);
       return;
     }
     final isSword = kind == 'sword';
@@ -475,8 +475,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         ? 1.0
         : (42 / 32);
     size = Vector2(
-      game.size.y * 0.2 * aspect * scale,
-      game.size.y * 0.2 * scale,
+      game.size.y * 0.3 * aspect * scale,
+      game.size.y * 0.3 * scale,
     );
     _loadAnimations().then((_) {
       current = 'idle';
