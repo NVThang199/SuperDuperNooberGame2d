@@ -242,10 +242,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   Future<void> _loadAnimations() async {
     final kind = game.inventory.weaponType;
-    if (kind == 'none') {
+    final aspect = character.textureSize.x / character.textureSize.y;
+    if (kind == 'none' || character.id == 'free_knight') {
       animations = _baseAnimations;
       current = 'idle';
-      size = Vector2.all(game.size.y * 0.2); // Restore base size
+      size = Vector2(game.size.y * 0.2 * aspect, game.size.y * 0.2);
       return;
     }
     final isSword = kind == 'sword';
@@ -457,8 +458,13 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
   void refreshWeaponAnimation() {
     if (!isLoaded) return;
-    size = Vector2.all(
-      game.size.y * 0.2 * (game.inventory.weaponType == 'none' ? 1 : 42 / 32),
+    final aspect = character.textureSize.x / character.textureSize.y;
+    final scale = (game.inventory.weaponType == 'none' || character.id == 'free_knight')
+        ? 1.0
+        : (42 / 32);
+    size = Vector2(
+      game.size.y * 0.2 * aspect * scale,
+      game.size.y * 0.2 * scale,
     );
     _loadAnimations().then((_) {
       current = 'idle';
