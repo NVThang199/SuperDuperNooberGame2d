@@ -1430,7 +1430,7 @@ class NgocRongGame extends FlameGame
       fire.removeFromParent();
       add(slime);
       canOpenChest.value = false;
-      player.position.x = size.x * 0.1;
+      player.position.x = size.x * 0.1 + player.size.x / 2;
     } else if (currentMap == 1 && player.position.x >= maxPlayerX - 1) {
       currentMap = 2;
       removeAll(children.whereType<DoubleJumpDust>());
@@ -1438,7 +1438,7 @@ class NgocRongGame extends FlameGame
       add(background2);
       slime.removeFromParent();
       add(boss);
-      player.position.x = size.x * 0.1;
+      player.position.x = size.x * 0.1 + player.size.x / 2;
     } else if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
       currentMap = 1;
       removeAll(children.whereType<DoubleJumpDust>());
@@ -1446,7 +1446,7 @@ class NgocRongGame extends FlameGame
       add(background1);
       boss.removeFromParent();
       add(slime);
-      player.position.x = size.x * 0.9;
+      player.position.x = size.x * 0.9 - player.size.x / 2;
     } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
       currentMap = 0;
       removeAll(children.whereType<DoubleJumpDust>());
@@ -1455,7 +1455,7 @@ class NgocRongGame extends FlameGame
       slime.removeFromParent();
       add(chest);
       add(fire);
-      player.position.x = size.x * 0.9;
+      player.position.x = size.x * 0.9 - player.size.x / 2;
     }
 
     if (currentMap == 0) {
