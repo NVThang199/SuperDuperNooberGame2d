@@ -7,6 +7,7 @@ final List<CharacterConfig> allCharacters = [
   dudeConfig,
   owletConfig,
   pinkConfig,
+  freeKnightConfig,
 ];
 
 class CharacterSelection extends StatelessWidget {
