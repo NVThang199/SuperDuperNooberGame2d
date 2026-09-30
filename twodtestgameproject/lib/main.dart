@@ -309,14 +309,11 @@ class _GameScreenState extends State<GameScreen> {
                   if (snap.connectionState != ConnectionState.done) {
                     return const SizedBox.shrink();
                   }
-                  return StatefulBuilder(
-                    builder: (ctx2, setState) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        Future.delayed(const Duration(milliseconds: 100), () {
-                          if (mounted) setState(() {});
-                        });
-                      });
-                      if (game.currentMap != 1) {
+                  return FutureBuilder<void>(
+                    future: game.loaded,
+                    builder: (ctx, snap) {
+                      if (snap.connectionState != ConnectionState.done ||
+                          game.currentMap != 1) {
                         return const SizedBox.shrink();
                       }
                       final dist =

@@ -1488,10 +1488,15 @@ class NgocRongGame extends FlameGame
       background2.size = size.clone();
       chest.size = Vector2.all(size.y * 0.15);
       fire.size = Vector2.all(size.y * 0.12);
-      final playerSize = size.y * 0.2;
+      final playerSize = size.y * 0.3;
       final groundHeight = size.y * 0.1;
-      player.size = Vector2.all(
-        playerSize * (inventory.weaponType == 'none' ? 1 : 42 / 32),
+      final aspect = player.character.textureSize.x / player.character.textureSize.y;
+      final scale = (inventory.weaponType == 'none' || player.character.id == 'free_knight')
+          ? 1.0
+          : (42 / 32);
+      player.size = Vector2(
+        playerSize * aspect * scale,
+        playerSize * scale,
       );
       player.position.y = size.y - groundHeight - playerSize / 2;
       final maxX = size.x - playerSize / 2;
