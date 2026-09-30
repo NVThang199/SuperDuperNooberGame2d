@@ -195,7 +195,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }) : settings = settings ?? GameSettings(),
        super(
          position: position,
-         size: Vector2(96, 96),
+         size: Vector2(
+           96 * (character.textureSize.x / character.textureSize.y),
+           96,
+         ),
          anchor: Anchor.center,
          priority: 5,
        );
@@ -311,13 +314,13 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       character.idlePath,
       character.walkPath,
       character.runPath,
-      character.walkRunPushDustPath,
-      character.walkAttackPath,
+      if (character.walkRunPushDustPath.isNotEmpty) character.walkRunPushDustPath,
+      if (character.walkAttackPath.isNotEmpty) character.walkAttackPath,
       character.attack1Path,
       character.attack2Path,
       character.jumpPath,
-      character.pushPath,
-      character.doubleJumpDustPath,
+      if (character.pushPath.isNotEmpty) character.pushPath,
+      if (character.doubleJumpDustPath.isNotEmpty) character.doubleJumpDustPath,
       character.deathPath,
       character.hurtPath,
     ];
@@ -337,20 +340,30 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       character.textureSize,
       loop: false,
     );
-    _dustAnimation = _loadAnim(
-      character.doubleJumpDustPath,
-      character.doubleJumpDustAmount,
-      character.doubleJumpDustStepTime,
-      character.textureSize,
-      loop: false,
-    );
-    _walkRunPushDustAnimation = _loadAnim(
-      character.walkRunPushDustPath,
-      character.walkRunPushDustAmount,
-      character.walkRunPushDustStepTime,
-      character.textureSize,
-      loop: false,
-    );
+    _dustAnimation = character.doubleJumpDustPath.isEmpty
+        ? null
+        : _loadAnim(
+            character.doubleJumpDustPath,
+            character.doubleJumpDustAmount,
+            character.doubleJumpDustStepTime,
+            character.textureSize,
+            loop: false,
+          );
+    _walkRunPushDustAnimation = character.walkRunPushDustPath.isEmpty
+        ? null
+        : _loadAnim(
+            character.walkRunPushDustPath,
+            character.walkRunPushDustAmount,
+            character.walkRunPushDustStepTime,
+            character.textureSize,
+            loop: false,
+          );
+    final walkAttackPath = character.walkAttackPath.isEmpty
+        ? character.attack1Path
+        : character.walkAttackPath;
+    final pushPath = character.pushPath.isEmpty
+        ? character.idlePath
+        : character.pushPath;
 
     animations = {
       'idle': _loadAnim(
@@ -374,7 +387,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       'death': _deathAnimation!,
       'hurt': _hurtAnimation!,
       'walkAttack': _loadAnim(
-        character.walkAttackPath,
+        walkAttackPath,
         character.walkAttackAmount,
         character.walkAttackStepTime,
         character.textureSize,
@@ -408,7 +421,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         loop: false,
       ),
       'push': _loadAnim(
-        character.pushPath,
+        pushPath,
         character.pushAmount,
         character.pushStepTime,
         character.textureSize,
