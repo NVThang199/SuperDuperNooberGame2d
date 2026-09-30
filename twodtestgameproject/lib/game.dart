@@ -203,24 +203,21 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
          priority: 5,
        );
 
-  SpriteAnimation? _loadAnim(
+  SpriteAnimation _loadAnim(
     String path,
     int amount,
     double stepTime,
     Vector2 size, {
     bool loop = true,
-  }) {
-    if (path.isEmpty) return null;
-    return SpriteAnimation.fromFrameData(
-      game.images.fromCache(path),
-      SpriteAnimationData.sequenced(
-        amount: amount,
-        stepTime: stepTime,
-        textureSize: size,
-        loop: loop,
-      ),
-    );
-  }
+  }) => SpriteAnimation.fromFrameData(
+    game.images.fromCache(path),
+    SpriteAnimationData.sequenced(
+      amount: amount,
+      stepTime: stepTime,
+      textureSize: size,
+      loop: loop,
+    ),
+  );
 
   Future<SpriteAnimation> _loadWeaponSheet(
     String file,
