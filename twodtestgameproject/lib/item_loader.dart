@@ -6,7 +6,7 @@ class ItemLoader {
   static Future<List<InventoryItem>> loadItems() async {
     final csv = await rootBundle.loadString('assets/item/items.csv');
     final lines = csv.split('\n').skip(1);
-    return lines.where((line) => line.isNotEmpty).map<InventoryItem>((line) {
+    return lines.where((line) => line.isNotEmpty).map((line) {
       final parts = line.split(',');
       if (parts.length != 11) {
         throw FormatException(
@@ -14,10 +14,14 @@ class ItemLoader {
         );
       }
       final type = parts[4];
-      if (!{
-        'ring', 'necklace', 'bracer', 'armor', 'weapon', 'shield', 
-        'helm', 'boots', 'belt', 'artifact', 'cape'
-      }.contains(type)) {
+      final validTypes = {
+        'ring', 'necklace', 'bracer', 'weapon', 'bow', 'shield', 
+        'belt', 'artifact', 'cape',
+        'light helm', 'medium helm', 'heavy helm',
+        'light armor', 'medium armor', 'heavy armor',
+        'light boots', 'medium boots', 'heavy boots',
+      };
+      if (!validTypes.contains(type)) {
         throw FormatException('Invalid item type: $type');
       }
       return InventoryItem(
@@ -33,6 +37,6 @@ class ItemLoader {
         defenseBonus: int.parse(parts[9]),
         description: parts[10].trim(),
       );
-      }).toList();
+    }).toList();
   }
 }

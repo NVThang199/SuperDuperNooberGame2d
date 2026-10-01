@@ -56,7 +56,12 @@ class _OverlayEditorPageState extends State<OverlayEditorPage> {
           return Stack(
             key: _stackKey,
             children: [
-              for (final id in OverlayButtonId.values)
+              for (final id in [
+                OverlayButtonId.joystick,
+                OverlayButtonId.run,
+                OverlayButtonId.attack,
+                OverlayButtonId.roll,
+              ])
                 _buildButton(layout, id, size),
               if (sel != null) _buildControls(layout, sel, size),
             ],
@@ -239,12 +244,14 @@ class _OverlayEditorPageState extends State<OverlayEditorPage> {
   );
 
   static IconData _iconOf(OverlayButtonId id) => switch (id) {
+    OverlayButtonId.joystick => Icons.gamepad,
     OverlayButtonId.moveLeft => Icons.keyboard_arrow_left,
     OverlayButtonId.moveRight => Icons.keyboard_arrow_right,
     OverlayButtonId.shield => Icons.shield,
     OverlayButtonId.run => Icons.directions_run,
-    OverlayButtonId.throwRock => Icons.landscape,
     OverlayButtonId.attack => Icons.local_fire_department,
     OverlayButtonId.jump => Icons.keyboard_arrow_up,
+    OverlayButtonId.crouch => Icons.arrow_downward,
+    OverlayButtonId.roll => Icons.cached,
   };
 }

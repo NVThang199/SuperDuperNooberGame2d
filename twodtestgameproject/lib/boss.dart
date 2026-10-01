@@ -11,7 +11,7 @@ class BossEnemy extends PositionComponent {
   static const double frameSize = 100;
   static const double stepTime = 0.1;
   static const double slowStepTime = 0.35;
-  static const double sizeMultiplier = 2.4;
+  static const double sizeMultiplier = 3.6;
   static const double chaseSpeed = 40;
   static const double skill1FastStep = 0.1;
   static const double skill1SlowStep = 0.35;
@@ -53,7 +53,7 @@ class BossEnemy extends PositionComponent {
 
   @override
   Future<void> onLoad() async {
-    size = Vector2.all(frameSize * 2.2);
+    size = Vector2.all(frameSize * 3.3);
     _initialPosition = position.clone();
     sprite = SpriteAnimationComponent(
       anchor: Anchor.center,
@@ -257,11 +257,11 @@ class BossEnemy extends PositionComponent {
     }
 
     if (_currentState == 'attacking') {
-      if (stateTimer > stepTime * 6 && nextAttackFrame == 0) {
+      if (stateTimer > stepTime * 3 && nextAttackFrame == 0) {
         _dealAttackDamage();
         nextAttackFrame = 1;
       }
-      if (stateTimer > stepTime * 12 && nextAttackFrame == 1) {
+      if (stateTimer > stepTime * 10 && nextAttackFrame == 1) {
         _dealAttackDamage();
         nextAttackFrame = 2;
       }
@@ -294,16 +294,16 @@ class BossEnemy extends PositionComponent {
   }
 
   void _dealAttackDamage() {
-    const dmg = 60.0;
+    const dmg = DamageConfig.bossAttackDamage;
     const range = 120.0;
     if ((player.position - position).length < range) {
-      player.takeDamage(dmg);
+      player.takeBossAttackDamage(dmg);
       if (kDebugMode) print('Boss attacking: -$dmg HP');
     }
   }
 
   void _dealSkillDamage() {
-    const dmg = 120.0;
+    const dmg = DamageConfig.bossSkillDamage;
     const range = 120.0;
     if ((player.position - position).length < range) {
       player.takeDamage(dmg);
@@ -454,7 +454,7 @@ class BossMinion extends PositionComponent {
     position.y = groundY;
 
     if ((player.position - position).length < frameSize * 1.2) {
-      player.takeDamage(5);
+      player.takeDamage(DamageConfig.bossMinionDamage);
       if (kDebugMode) print('Minion attacked player: -5 HP');
     }
   }

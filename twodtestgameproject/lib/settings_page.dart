@@ -54,7 +54,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
       'Nhảy': [_s.jumpKey, (LogicalKeyboardKey k) => _s.jumpKey = k],
       'Tấn công': [_s.attackKey, (LogicalKeyboardKey k) => _s.attackKey = k],
-      'Ném đá': [_s.throwKey, (LogicalKeyboardKey k) => _s.throwKey = k],
+
       'Khiên': [_s.shieldKey, (LogicalKeyboardKey k) => _s.shieldKey = k],
       'Chạy': [_s.runKey, (LogicalKeyboardKey k) => _s.runKey = k],
       'Mở rương': [_s.chestKey, (LogicalKeyboardKey k) => _s.chestKey = k],

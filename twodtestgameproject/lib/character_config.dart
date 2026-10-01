@@ -17,6 +17,12 @@ class CharacterConfig {
   final String deathFile;
   final String hurtFile;
   final String doubleJumpDustFile;
+  final String fallFile;
+  final String crouchFile;
+  final String crouchWalkFile;
+  final String crouchAttackFile;
+  final String crouchTransitionFile;
+  final String rollFile;
   final int idleAmount;
   final int walkAmount;
   final int runAmount;
@@ -30,6 +36,12 @@ class CharacterConfig {
   final int deathAmount;
   final int hurtAmount;
   final int doubleJumpDustAmount;
+  final int fallFrameCount;
+  final int crouchFrameCount;
+  final int crouchWalkFrameCount;
+  final int crouchAttackFrameCount;
+  final int crouchTransitionFrameCount;
+  final int rollFrameCount;
   final Vector2 textureSize;
   final double idleStepTime;
   final double walkStepTime;
@@ -44,6 +56,12 @@ class CharacterConfig {
   final double deathStepTime;
   final double hurtStepTime;
   final double doubleJumpDustStepTime;
+  final double fallStepTime;
+  final double crouchStepTime;
+  final double crouchWalkStepTime;
+  final double crouchAttackStepTime;
+  final double crouchTransitionStepTime;
+  final double rollStepTime;
 
   const CharacterConfig({
     required this.id,
@@ -62,6 +80,12 @@ class CharacterConfig {
     required this.deathFile,
     required this.hurtFile,
     required this.doubleJumpDustFile,
+    required this.fallFile,
+    required this.crouchFile,
+    required this.crouchWalkFile,
+    required this.crouchAttackFile,
+    required this.crouchTransitionFile,
+    required this.rollFile,
     required this.idleAmount,
     required this.walkAmount,
     required this.runAmount,
@@ -75,6 +99,12 @@ class CharacterConfig {
     required this.deathAmount,
     required this.hurtAmount,
     required this.doubleJumpDustAmount,
+    required this.fallFrameCount,
+    required this.crouchFrameCount,
+    required this.crouchWalkFrameCount,
+    required this.crouchAttackFrameCount,
+    required this.crouchTransitionFrameCount,
+    required this.rollFrameCount,
     required this.textureSize,
     required this.idleStepTime,
     required this.walkStepTime,
@@ -89,21 +119,39 @@ class CharacterConfig {
     required this.deathStepTime,
     required this.hurtStepTime,
     required this.doubleJumpDustStepTime,
+    required this.fallStepTime,
+    required this.crouchStepTime,
+    required this.crouchWalkStepTime,
+    required this.crouchAttackStepTime,
+    required this.crouchTransitionStepTime,
+    required this.rollStepTime,
   });
 
-  String get idlePath => '$basePath/$idleFile';
-  String get walkPath => '$basePath/$walkFile';
-  String get runPath => '$basePath/$runFile';
-  String get walkRunPushDustPath => '$basePath/$walkRunPushDustFile';
-  String get walkAttackPath => '$basePath/$walkAttackFile';
-  String get throwPath => '$basePath/$throwFile';
-  String get attack1Path => '$basePath/$attack1File';
-  String get attack2Path => '$basePath/$attack2File';
-  String get jumpPath => '$basePath/$jumpFile';
-  String get pushPath => '$basePath/$pushFile';
-  String get deathPath => '$basePath/$deathFile';
-  String get hurtPath => '$basePath/$hurtFile';
-  String get doubleJumpDustPath => '$basePath/$doubleJumpDustFile';
+  String get idlePath => idleFile.isEmpty ? '' : '$basePath/$idleFile';
+  String get walkPath => walkFile.isEmpty ? '' : '$basePath/$walkFile';
+  String get runPath => runFile.isEmpty ? '' : '$basePath/$runFile';
+  String get walkRunPushDustPath =>
+      walkRunPushDustFile.isEmpty ? '' : '$basePath/$walkRunPushDustFile';
+  String get walkAttackPath =>
+      walkAttackFile.isEmpty ? '' : '$basePath/$walkAttackFile';
+  String get throwPath => throwFile.isEmpty ? '' : '$basePath/$throwFile';
+  String get attack1Path => attack1File.isEmpty ? '' : '$basePath/$attack1File';
+  String get attack2Path => attack2File.isEmpty ? '' : '$basePath/$attack2File';
+  String get jumpPath => jumpFile.isEmpty ? '' : '$basePath/$jumpFile';
+  String get pushPath => pushFile.isEmpty ? '' : '$basePath/$pushFile';
+  String get deathPath => deathFile.isEmpty ? '' : '$basePath/$deathFile';
+  String get hurtPath => hurtFile.isEmpty ? '' : '$basePath/$hurtFile';
+  String get doubleJumpDustPath =>
+      doubleJumpDustFile.isEmpty ? '' : '$basePath/$doubleJumpDustFile';
+  String get fallPath => fallFile.isEmpty ? '' : '$basePath/$fallFile';
+  String get crouchPath => crouchFile.isEmpty ? '' : '$basePath/$crouchFile';
+  String get crouchWalkPath =>
+      crouchWalkFile.isEmpty ? '' : '$basePath/$crouchWalkFile';
+  String get crouchAttackPath =>
+      crouchAttackFile.isEmpty ? '' : '$basePath/$crouchAttackFile';
+  String get crouchTransitionPath =>
+      crouchTransitionFile.isEmpty ? '' : '$basePath/$crouchTransitionFile';
+  String get rollPath => rollFile.isEmpty ? '' : '$basePath/$rollFile';
 }
 
 final Vector2 _ts = Vector2(32, 32);
@@ -138,6 +186,24 @@ CharacterConfig createConfig(
   required double deathStepTime,
   required double hurtStepTime,
   required double doubleJumpDustStepTime,
+  String fallFile = '',
+  int fallFrameCount = 0,
+  double fallStepTime = 0,
+  String crouchFile = '',
+  int crouchFrameCount = 0,
+  double crouchStepTime = 0,
+  String crouchWalkFile = '',
+  int crouchWalkFrameCount = 0,
+  double crouchWalkStepTime = 0,
+  String crouchAttackFile = '',
+  int crouchAttackFrameCount = 0,
+  double crouchAttackStepTime = 0,
+  String crouchTransitionFile = '',
+  int crouchTransitionFrameCount = 0,
+  double crouchTransitionStepTime = 0,
+  String rollFile = '',
+  int rollFrameCount = 0,
+  double rollStepTime = 0,
 }) {
   final cap = id[0].toUpperCase() + id.substring(1);
   return CharacterConfig(
@@ -157,6 +223,12 @@ CharacterConfig createConfig(
     deathFile: '${cap}_Monster_Death_$deathAmount.png',
     hurtFile: '${cap}_Monster_Hurt_$hurtAmount.png',
     doubleJumpDustFile: 'Double_Jump_Dust_$doubleJumpDustAmount.png',
+    fallFile: fallFile,
+    crouchFile: crouchFile,
+    crouchWalkFile: crouchWalkFile,
+    crouchAttackFile: crouchAttackFile,
+    crouchTransitionFile: crouchTransitionFile,
+    rollFile: rollFile,
     idleAmount: idleAmount,
     walkAmount: walkAmount,
     runAmount: runAmount,
@@ -170,6 +242,12 @@ CharacterConfig createConfig(
     deathAmount: deathAmount,
     hurtAmount: hurtAmount,
     doubleJumpDustAmount: doubleJumpDustAmount,
+    fallFrameCount: fallFrameCount,
+    crouchFrameCount: crouchFrameCount,
+    crouchWalkFrameCount: crouchWalkFrameCount,
+    crouchAttackFrameCount: crouchAttackFrameCount,
+    crouchTransitionFrameCount: crouchTransitionFrameCount,
+    rollFrameCount: rollFrameCount,
     textureSize: _ts,
     idleStepTime: idleStepTime,
     walkStepTime: walkStepTime,
@@ -184,21 +262,111 @@ CharacterConfig createConfig(
     deathStepTime: deathStepTime,
     hurtStepTime: hurtStepTime,
     doubleJumpDustStepTime: doubleJumpDustStepTime,
+    fallStepTime: fallStepTime,
+    crouchStepTime: crouchStepTime,
+    crouchWalkStepTime: crouchWalkStepTime,
+    crouchAttackStepTime: crouchAttackStepTime,
+    crouchTransitionStepTime: crouchTransitionStepTime,
+    rollStepTime: rollStepTime,
   );
 }
 
-
 CharacterConfig _create(String id, String displayName) => createConfig(
-  id, displayName, 'characters/${id}_monster',
-  idleAmount: 4, walkAmount: 6, runAmount: 6, walkRunPushDustAmount: 6,
-  walkAttackAmount: 6, throwAmount: 4, attack1Amount: 4, attack2Amount: 6,
-  jumpAmount: 8, pushAmount: 6, deathAmount: 8, hurtAmount: 4, doubleJumpDustAmount: 5,
-  idleStepTime: 0.2, walkStepTime: 0.1, runStepTime: 0.08, walkRunPushDustStepTime: 0.1,
-  walkAttackStepTime: 0.1, throwStepTime: 0.1, attack1StepTime: 0.12, attack2StepTime: 0.1,
-  jumpStepTime: 0.1, pushStepTime: 0.12, deathStepTime: 0.12, hurtStepTime: 0.1, doubleJumpDustStepTime: 0.08,
+  id,
+  displayName,
+  'characters/${id}_monster',
+  idleAmount: 4,
+  walkAmount: 6,
+  runAmount: 6,
+  walkRunPushDustAmount: 6,
+  walkAttackAmount: 6,
+  throwAmount: 4,
+  attack1Amount: 4,
+  attack2Amount: 6,
+  jumpAmount: 8,
+  pushAmount: 6,
+  deathAmount: 8,
+  hurtAmount: 4,
+  doubleJumpDustAmount: 5,
+  idleStepTime: 0.2,
+  walkStepTime: 0.1,
+  runStepTime: 0.08,
+  walkRunPushDustStepTime: 0.1,
+  walkAttackStepTime: 0.1,
+  throwStepTime: 0.1,
+  attack1StepTime: 0.12,
+  attack2StepTime: 0.1,
+  jumpStepTime: 0.1,
+  pushStepTime: 0.12,
+  deathStepTime: 0.12,
+  hurtStepTime: 0.1,
+  doubleJumpDustStepTime: 0.08,
 );
 
 final dudeConfig = _create('dude', 'Dude');
 final owletConfig = _create('owlet', 'Owlet');
 final pinkConfig = _create('pink', 'Pink');
 
+final freeKnightConfig = CharacterConfig(
+  id: 'free_knight',
+  displayName: 'Free Knight',
+  basePath: 'characters/free_knight',
+  idleFile: '_Idle.png',
+  walkFile: '_Run.png',
+  runFile: '_Run.png',
+  walkRunPushDustFile: '',
+  walkAttackFile: '',
+  throwFile: '',
+  attack1File: '_Attack.png',
+  attack2File: '_Attack2.png',
+  jumpFile: '_Jump.png',
+  pushFile: '',
+  deathFile: '_DeathNoMovement.png',
+  hurtFile: '_Hit.png',
+  doubleJumpDustFile: '',
+  fallFile: '_Fall.png',
+  crouchFile: '_Crouch.png',
+  crouchWalkFile: '_CrouchWalk.png',
+  crouchAttackFile: '_CrouchAttack.png',
+  crouchTransitionFile: '_CrouchTransition.png',
+  rollFile: '_Roll.png',
+  idleAmount: 10,
+  walkAmount: 10,
+  runAmount: 10,
+  walkRunPushDustAmount: 0,
+  walkAttackAmount: 0,
+  throwAmount: 0,
+  attack1Amount: 4,
+  attack2Amount: 6,
+  jumpAmount: 3,
+  pushAmount: 0,
+  deathAmount: 10,
+  hurtAmount: 1,
+  doubleJumpDustAmount: 0,
+  fallFrameCount: 3,
+  crouchFrameCount: 1,
+  crouchWalkFrameCount: 8,
+  crouchAttackFrameCount: 4,
+  crouchTransitionFrameCount: 1,
+  rollFrameCount: 12,
+  textureSize: Vector2(120, 80),
+  idleStepTime: 0.15,
+  walkStepTime: 0.08,
+  runStepTime: 0.08,
+  walkRunPushDustStepTime: 0.1,
+  walkAttackStepTime: 0.1,
+  throwStepTime: 0.1,
+  attack1StepTime: 0.1,
+  attack2StepTime: 0.1,
+  jumpStepTime: 0.1,
+  pushStepTime: 0.12,
+  deathStepTime: 0.1,
+  hurtStepTime: 0.2,
+  doubleJumpDustStepTime: 0.08,
+  fallStepTime: 0.1,
+  crouchStepTime: 0.15,
+  crouchWalkStepTime: 0.1,
+  crouchAttackStepTime: 0.1,
+  crouchTransitionStepTime: 0.1,
+  rollStepTime: 0.08,
+);
