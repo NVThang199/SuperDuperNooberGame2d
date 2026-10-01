@@ -63,7 +63,7 @@ class BossEnemy extends PositionComponent {
 
     await _loadAnimation('idle');
     sprite.size = Vector2.all(frameSize * sizeMultiplier);
-    position.y -= frameSize * 0.3;
+    // position.y already correct from spawn, no offset needed
     _initialPosition.y = position.y; // save final Y position after adjustment
   }
 
@@ -82,13 +82,13 @@ class BossEnemy extends PositionComponent {
     double useStep;
     switch (state) {
       case 'attacking':
-        file = 'enemies/boss/attacking.png';
+        file = 'enemies/undead_boss/attacking.png';
         frames = 13;
         cols = 6;
         useStep = stepTime;
         break;
       case 'skill1':
-        file = 'enemies/boss/skill1.png';
+        file = 'enemies/undead_boss/skill1.png';
         frames = 12;
         cols = 6;
         useStep = stepTime;
@@ -96,26 +96,26 @@ class BossEnemy extends PositionComponent {
         invincibleTimer = 5 * skill1FastStep + 7 * skill1SlowStep;
         break;
       case 'summon':
-        file = 'enemies/boss/summon.png';
+        file = 'enemies/undead_boss/summon.png';
         frames = 5;
         cols = 4;
         useStep = slowStepTime;
         break;
       case 'idle2':
-        file = 'enemies/boss/idle2.png';
+        file = 'enemies/undead_boss/idle2.png';
         frames = 8;
         cols = 4;
         useStep = stepTime;
         break;
       case 'death':
-        file = 'enemies/boss/death.png';
+        file = 'enemies/undead_boss/death.png';
         frames = 20;
         cols = 10;
         useStep = stepTime;
         dead = true;
         break;
       default:
-        file = 'enemies/boss/idle.png';
+        file = 'enemies/undead_boss/idle.png';
         frames = 4;
         cols = 5;
         useStep = stepTime;
@@ -156,30 +156,18 @@ class BossEnemy extends PositionComponent {
   void update(double dt) {
     super.update(dt);
 
-   if (dead || game.currentMap != 2) {
-      if (game.currentMap != 2 && _aggro) {
-        _aggro = false;
+   if (dead) {
+      _deathTimer += dt;
+      if (_deathTimer >= 5.0) {
+        // Respawn
+        dead = false;
         health = maxHealth;
-        position = _initialPosition.clone();
-        _loadAnimation('idle');
+        _deathTimer = 0;
+        _aggro = false;
         _lowHPTriggered = false;
         _attackCount = 0;
         _skill1Count = 0;
-        _deathTimer = 0;
-      }
-      if (dead) {
-        _deathTimer += dt;
-        if (_deathTimer >= 5.0) {
-          // Respawn
-          dead = false;
-          health = maxHealth;
-          _deathTimer = 0;
-          _aggro = false;
-          _lowHPTriggered = false;
-          _attackCount = 0;
-          _skill1Count = 0;
-          _loadAnimation('idle');
-        }
+        _loadAnimation('idle');
       }
       return;
     }
@@ -230,6 +218,9 @@ class BossEnemy extends PositionComponent {
     if (_aggro && canMove) {
       position.y += (player.position.y - position.y) * 0.5 * dt;
     }
+    // Clamp feet to the bottom ground line.
+    final groundY = NgocRongGame.groundLine(game.size.y) - size.y / 2;
+    position.y = groundY;
 
     if (_aggro && (_currentState == 'idle' || _currentState == 'idle2')) {
       final distanceToPlayer = (player.position - position).length;
@@ -328,7 +319,7 @@ class BossEnemy extends PositionComponent {
         player: player,
         position: Vector2(position.x + offsetX, player.position.y),
       );
-      game.add(minion);
+      game.world.add(minion);
     }
     if (kDebugMode) print('Boss summoned 3 minions');
   }
@@ -345,6 +336,7 @@ class BossEnemy extends PositionComponent {
   }
 
   void resetState() {
+    health = maxHealth;
     _aggro = false;
     _lowHPTriggered = false;
     _attackCount = 0;
@@ -402,7 +394,7 @@ class BossMinion extends PositionComponent {
     );
     add(sprite);
 
-    final img = await Flame.images.load('enemies/boss/summonAppear.png');
+    final img = await Flame.images.load('enemies/undead_boss/summonAppear.png');
     final spriteList = <Sprite>[];
     for (int i = 0; i < 3; i++) {
       spriteList.add(
@@ -426,11 +418,6 @@ class BossMinion extends PositionComponent {
     super.update(dt);
 
     if (dead) return;
-    // Only active on map 2; preserve minion while hidden.
-    if (game.currentMap != 2) {
-      sprite.scale = Vector2.zero();
-      return;
-    }
     sprite.scale = Vector2.all(1);
     // Remove if player dead
     if (player.health <= 0) {
@@ -462,6 +449,9 @@ class BossMinion extends PositionComponent {
     if (player.isOnGround) {
       position.y = player.position.y;
     }
+    // Clamp feet to the bottom ground line.
+    final groundY = NgocRongGame.groundLine(game.size.y) - size.y / 2;
+    position.y = groundY;
 
     if ((player.position - position).length < frameSize * 1.2) {
       player.takeDamage(5);
@@ -470,7 +460,7 @@ class BossMinion extends PositionComponent {
   }
 
   Future<void> _loadIdleAnim() async {
-    final img = await Flame.images.load('enemies/boss/summonIdle.png');
+    final img = await Flame.images.load('enemies/undead_boss/summonIdle.png');
     final spriteList = <Sprite>[];
     for (int i = 0; i < 4; i++) {
       spriteList.add(
@@ -498,7 +488,7 @@ class BossMinion extends PositionComponent {
   }
 
   Future<void> _playDeathAnim() async {
-    final img = await Flame.images.load('enemies/boss/summonDeath.png');
+    final img = await Flame.images.load('enemies/undead_boss/summonDeath.png');
     final spriteList = <Sprite>[];
     for (int i = 0; i < 3; i++) {
       spriteList.add(

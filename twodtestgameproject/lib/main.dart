@@ -12,6 +12,8 @@ import 'overlay_editor.dart';
 import 'game.dart';
 import 'settings_page.dart';
 import 'inventory.dart';
+import 'skill_config.dart';
+import 'skill_selection.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,6 +87,7 @@ class _GameScreenState extends State<GameScreen> {
   late final game = NgocRongGame(character: widget.character);
   OverlayLayout _layout = OverlayLayout.defaults();
   bool _showPauseMenu = false;
+  SkillConfig _selectedSkill = SkillConfig.allSkills.first;
 
   @override
   void initState() {
@@ -215,18 +218,21 @@ class _GameScreenState extends State<GameScreen> {
                   }
                   return ValueListenableBuilder<double>(
                     valueListenable: game.player.healthNotifier,
-                    builder: (ctx2, health, _) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        buildBar(health, game.player.maxHealth, Colors.red, 'assets/images/ui/HPbar.png', showText: true),
-                        ValueListenableBuilder<double>(
-                          valueListenable: game.player.staminaNotifier,
-                          builder: (ctx3, stamina, _) => Transform.translate(
-                            offset: const Offset(0, -8),
-                            child: buildBar(stamina, game.player.maxStamina, Colors.blue.shade700, 'assets/images/ui/HPbar.png'),
+                    builder: (ctx2, health, _) => ValueListenableBuilder<double>(
+                      valueListenable: game.player.maxHealthNotifier,
+                      builder: (ctx3, maxHealth, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildBar(health, maxHealth, Colors.red, 'assets/images/ui/HPbar.png', showText: true),
+                          ValueListenableBuilder<double>(
+                            valueListenable: game.player.staminaNotifier,
+                            builder: (ctx4, stamina, _) => Transform.translate(
+                              offset: const Offset(0, -8),
+                              child: buildBar(stamina, game.player.maxStamina, Colors.blue.shade700, 'assets/images/ui/HPbar.png', showText: true),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                  },
@@ -235,18 +241,54 @@ class _GameScreenState extends State<GameScreen> {
               Positioned(
                 top: 12,
                 left: 204,
-                child: SizedBox(
-                  width: 96,
-                  height: 96,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => game.player.inventoryOpen.value = true,
-                    child: Image.asset(
-                      'assets/images/ui/inventorybagicon.png',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
                       width: 96,
                       height: 96,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => game.player.inventoryOpen.value = true,
+                        child: Image.asset(
+                          'assets/images/ui/inventorybagicon.png',
+                          width: 96,
+                          height: 96,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () async {
+                          final result = await showDialog<SkillConfig>(
+                            context: context,
+                            builder: (_) => SkillSelectionPage(
+                              initialSkill: _selectedSkill,
+                            ),
+                          );
+                          if (result != null && mounted) {
+                            setState(() => _selectedSkill = result);
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF333333).withValues(alpha: 0.85),
+                            border: Border.all(color: const Color(0xFFE8A644), width: 2.5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.menu_book,
+                            color: Color(0xFFE8A644),
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Positioned(
@@ -287,9 +329,6 @@ class _GameScreenState extends State<GameScreen> {
                             if (mounted) setState(() {});
                           });
                         });
-                        if (game.currentMap != 1) {
-                          return const SizedBox.shrink();
-                        }
                         final dist =
                             (game.player.position - game.slime.position).length;
                         final attackRange =
@@ -381,8 +420,8 @@ class _GameScreenState extends State<GameScreen> {
                       _RoundControl(
                         icon: Icons.keyboard_arrow_left,
                         label: 'TRÁI',
-                        onPressed: () => _move(-1),
-                        onReleased: () => _move(0),
+                        onPressed: () => game.player.isDead ? null : _move(-1),
+                        onReleased: () => game.player.isDead ? null : _move(0),
                       ),
                     ),
                     _btn(
@@ -391,8 +430,8 @@ class _GameScreenState extends State<GameScreen> {
                       _RoundControl(
                         icon: Icons.keyboard_arrow_right,
                         label: 'PHẢI',
-                        onPressed: () => _move(1),
-                        onReleased: () => _move(0),
+                        onPressed: () => game.player.isDead ? null : _move(1),
+                        onReleased: () => game.player.isDead ? null : _move(0),
                       ),
                     ),
                     _btn(
@@ -402,8 +441,8 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.shield,
                         label: 'KHIÊN',
                         color: Colors.grey,
-                        onPressed: () => game.player.setShielding(true),
-                        onReleased: () => game.player.setShielding(false),
+                        onPressed: () => game.player.isDead ? null : game.player.setShielding(true),
+                        onReleased: () => game.player.isDead ? null : game.player.setShielding(false),
                       ),
                     ),
                     _btn(
@@ -413,8 +452,8 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.directions_run,
                         label: 'CHẠY',
                         color: Colors.green,
-                        onPressed: () => game.player.setRunning(true),
-                        onReleased: () => game.player.setRunning(false),
+                        onPressed: () => game.player.isDead ? null : game.player.setRunning(true),
+                        onReleased: () => game.player.isDead ? null : game.player.setRunning(false),
                       ),
                     ),
                     _btn(
@@ -424,7 +463,7 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.landscape,
                         label: 'NÉM ĐÁ',
                         color: Colors.brown,
-                        onPressed: () => game.player.throwRock(),
+                        onPressed: () => game.player.isDead ? null : game.player.throwRock(),
                       ),
                     ),
                     _btn(
@@ -434,8 +473,8 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.local_fire_department,
                         label: 'TẤN CÔNG',
                         color: Colors.red,
-                        onPressed: () => game.player.setAttackHeld(true),
-                        onReleased: () => game.player.setAttackHeld(false),
+                        onPressed: () => game.player.isDead ? null : game.player.setAttackHeld(true),
+                        onReleased: () => game.player.isDead ? null : game.player.setAttackHeld(false),
                       ),
                     ),
                     _btn(
@@ -445,7 +484,7 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.keyboard_arrow_up,
                         label: 'NHẢY',
                         color: Colors.orange,
-                        onPressed: () => game.player.jump(),
+                        onPressed: () => game.player.isDead ? null : game.player.jump(),
                       ),
                     ),
                   ],
@@ -460,11 +499,11 @@ class _GameScreenState extends State<GameScreen> {
                   : ValueListenableBuilder<bool>(
                       valueListenable: game.player.inventoryOpen,
                       builder: (ctx2, open, _) => open
-                          ? InventoryWidget(
-                              inventory: InventoryState(),
-                              onClose: () =>
-                                  game.player.inventoryOpen.value = false,
-                            )
+                           ? InventoryWidget(
+                               inventory: game.inventory,
+                               onClose: () =>
+                                   game.player.inventoryOpen.value = false,
+                             )
                           : const SizedBox.shrink(),
                     ),
             ),

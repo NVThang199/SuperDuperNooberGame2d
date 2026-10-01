@@ -27,10 +27,15 @@ flutter:
     - assets/images/characters/owlet_monster/
     - assets/images/characters/pink_monster/
     - assets/images/enemies/slime3/
-    - assets/images/enemies/boss/
+    - assets/images/enemies/undead_boss/
     - assets/images/environment/
     - assets/images/action/
     - assets/images/ui/
+    - assets/images/skill_select/
     - assets/images/ui/inventory/
     - assets/images/background/
+    - assets/images/background/NightForest/
+    - assets/images/background/NightForest/Layers/
+    - assets/item/
+    - assets/item/64x64/
     - assets/images/background/forest_map2.png

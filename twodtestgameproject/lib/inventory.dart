@@ -3,8 +3,31 @@ import 'package:flutter/material.dart';
 class InventoryItem {
   final String id;
   final String name;
+  final String imagePath;
+  final String rarity;
+  final String type;
+  final int hpBonus;
+  final int mpBonus;
+  final int staminaBonus;
+  final int dmgBonus;
+  final int defenseBonus;
+  final String description;
+  int count;
 
-  InventoryItem({required this.id, required this.name});
+  InventoryItem({
+    this.id = '',
+    required this.name,
+    this.imagePath = '',
+    this.rarity = '',
+    this.type = '',
+    this.hpBonus = 0,
+    this.mpBonus = 0,
+    this.staminaBonus = 0,
+    this.dmgBonus = 0,
+    this.defenseBonus = 0,
+    this.description = '',
+    this.count = 1,
+  });
 }
 
 class InventoryState {
@@ -47,10 +70,12 @@ class InventoryWidget extends StatefulWidget {
 }
 
 class _InventoryWidgetState extends State<InventoryWidget> {
+  // Frame: 448×448. Grid: 4 rows × 5 cols (upscaled 4×)
   static const _frameW = 448.0;
   static const _frameH = 448.0;
   static const _cols = 5;
   static const _rows = 4;
+  // Grid pixels: 4× scaled (17,17)-(94,78) -> (68,68)-(376,312)
   static const _gridLeft = 68.0;
   static const _gridTop = 68.0;
   static const _gridRight = 376.0;
@@ -61,6 +86,9 @@ class _InventoryWidgetState extends State<InventoryWidget> {
     'assets/images/ui/inventory/Inventory2.png',
     'assets/images/ui/inventory/Inventory3.png',
   ];
+
+  Offset? _lastTapLocal;
+  double? _lastScale;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +213,10 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   }
 
   void _onTap(Offset local, double scale, InventoryState inv) {
+    setState(() {
+      _lastTapLocal = local;
+      _lastScale = scale;
+    });
     print('Inventory tap: local=$local, scale=$scale');
 
     final gridLeft = _gridLeft * scale;
