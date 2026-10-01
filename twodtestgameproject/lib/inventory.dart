@@ -100,9 +100,9 @@ class InventoryState {
   }
 
   double get rollSpeedMultiplier => switch (rollWeight) {
-    'heavy' => 0.75,
-    'medium' => 0.95,
-    'light' => 1.3,
+    'heavy' => 1.4,
+    'medium' => 1.6,
+    'light' => 1.8,
     _ => 2.0,
   };
 
@@ -220,6 +220,7 @@ class InventoryWidget extends StatefulWidget {
   final VoidCallback onGiveAll;
   final ValueChanged<InventoryItem> onUseItem;
   final ValueChanged<InventoryItem> onUnequipItem;
+  final bool debugMode;
 
   const InventoryWidget({
     super.key,
@@ -228,6 +229,7 @@ class InventoryWidget extends StatefulWidget {
     required this.onGiveAll,
     required this.onUseItem,
     required this.onUnequipItem,
+    this.debugMode = false,
   });
 
   @override
@@ -345,7 +347,9 @@ class _InventoryWidgetState extends State<InventoryWidget> {
                   child: Container(
                     width: 4 * scale,
                     height: 6 * scale,
-                    color: Colors.transparent,
+                    decoration: BoxDecoration(
+                      border: widget.debugMode ? Border.all(color: Colors.red) : null,
+                    ),
                   ),
                   ),
                   ),
@@ -359,7 +363,9 @@ class _InventoryWidgetState extends State<InventoryWidget> {
                   child: Container(
                     width: 4 * scale,
                     height: 6 * scale,
-                    color: Colors.transparent,
+                    decoration: BoxDecoration(
+                      border: widget.debugMode ? Border.all(color: Colors.red) : null,
+                    ),
                   ),
                   ),
                   ),
@@ -369,7 +375,13 @@ class _InventoryWidgetState extends State<InventoryWidget> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: widget.onClose,
-                      child: SizedBox(width: w * 0.08, height: w * 0.08),
+                      child: Container(
+                         width: w * 0.08,
+                         height: w * 0.08,
+                         decoration: BoxDecoration(
+                           border: widget.debugMode ? Border.all(color: Colors.red) : null,
+                         ),
+                       ),
                     ),
                   ),
 
@@ -417,7 +429,7 @@ class _InventoryWidgetState extends State<InventoryWidget> {
           : null,
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.transparent, width: 0),
+            border: widget.debugMode ? Border.all(color: Colors.red) : null,
             color: Colors.transparent,
           ),
           child: item != null && item.imagePath.isNotEmpty
@@ -465,8 +477,12 @@ class _InventoryWidgetState extends State<InventoryWidget> {
       top: y,
       width: slotW,
       height: slotH,
-      child: Stack(
-        children: [
+      child: Container(
+        decoration: BoxDecoration(
+          border: widget.debugMode ? Border.all(color: Colors.red) : null,
+        ),
+        child: Stack(
+          children: [
           if (item.imagePath.isNotEmpty)
             Image.asset(
               item.imagePath,
@@ -491,7 +507,8 @@ class _InventoryWidgetState extends State<InventoryWidget> {
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

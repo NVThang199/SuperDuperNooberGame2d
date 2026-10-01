@@ -44,6 +44,7 @@ class BossEnemy extends PositionComponent {
   int _skill1Count = 0; // track skill1 uses since last summon
   bool _lowHPTriggered = false; // track first 80% HP threshold summon
   double _deathTimer = 0; // respawn timer after death animation
+  String get currentState => _currentState;
 
   BossEnemy({
     required this.game,
@@ -354,7 +355,23 @@ class BossEnemy extends PositionComponent {
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    if (dead) return; // Hide HP bar when dead
+    if (dead) return;
+
+    if (game.settings.debugMode) {
+      final center = Offset(size.x / 2, size.y / 2);
+      final attackPaint = Paint()
+        ..color = const Color(0xFFFF0000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawCircle(center, 120, attackPaint);
+      if (_currentState == 'attacking' || _currentState == 'skill1') {
+        final activePaint = Paint()
+          ..color = const Color(0xFFFF0000).withAlpha(70)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(center, 120, activePaint);
+      }
+    }
+
     const barW = 100.0, barH = 8.0;
     final barX = size.x / 2 - barW / 2;
     final barY = -size.y / 2 + 125.0;

@@ -15,8 +15,6 @@ import 'package:flutter/material.dart';
 
 import 'inventory.dart';
 import 'item_loader.dart';
-import 'inventory.dart';
-import 'item_loader.dart';
 
 import 'character_config.dart';
 import 'shield_badge.dart';
@@ -33,7 +31,108 @@ class DamageConfig {
   static const double bossMinionDamage = 5.0;
 }
 
+class DebugOverlay extends PositionComponent with HasGameReference<NgocRongGame> {
+  final TextPaint _text = TextPaint(
+    style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.bold),
+  );
+  final Paint _box = Paint()
+    ..color = Colors.red
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+
+  @override
+  void render(Canvas canvas) {
+    if (!game.settings.debugMode) return;
+    final p = game.player;
+    
+    final groundY = game.size.y - game.size.y * 0.1;
+    final lines = <String>[
+    '[DEBUG] map=${game.currentMap} elapsed=${game.debugElapsed.toStringAsFixed(1)}s ground=${groundY.toStringAsFixed(1)}',
+    '[IFRAME: ${p._iframeActive ? "ACTIVE" : "INACTIVE"}]',
+    'Map bounds: X[0, ${game.size.x.toStringAsFixed(1)}] Y[0, ${game.size.y.toStringAsFixed(1)}]',
+    '[PLAYER] pos=${p.position.x.toStringAsFixed(1)},${p.position.y.toStringAsFixed(1)} vel=(${p.vx.toStringAsFixed(1)},${p.vy.toStringAsFixed(1)})',
+    'HP=${p.health.toStringAsFixed(1)}/${p.maxHealth} stamina=${p.stamina.toStringAsFixed(1)}/${p.maxStamina}',
+    'damage=${(p.baseDamage + p.dmgBonus).toStringAsFixed(1)} defense=${p.defenseBonus} shield=${p.shield.toStringAsFixed(1)}',
+    'anim=${p.current} weight=${p.inventory.rollWeight}',
+    'Inv Slots: ${p.inventory.items.length}/${InventoryState.slotsPerPage} Equipped: ${p.inventory.equippedCount}/${InventoryState.maxEquippedItems}',
+    'physics jump=${p.jumpImpulse.toStringAsFixed(1)} gravity=${p.gravity.toStringAsFixed(1)} speed=${p.movementSpeed.toStringAsFixed(1)}',
+    'hitbox w=${(p.size.x * 0.26).toStringAsFixed(1)} h=${(p.size.y * 0.48).toStringAsFixed(1)}',
+    ];
+    
+    final groundPaint = Paint()
+    ..color = Colors.yellow
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+    canvas.drawLine(Offset(0, groundY), Offset(game.size.x, groundY), groundPaint);
+    
+    final redPaint = Paint()
+    ..color = Colors.red
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+    final minX = p.size.x / 2;
+    final maxX = game.size.x - p.size.x / 2;
+    canvas.drawLine(Offset(minX, 0), Offset(minX, game.size.y), redPaint);
+    canvas.drawLine(Offset(maxX, 0), Offset(maxX, game.size.y), redPaint);
+    
+    // Map boundary visuals
+    canvas.drawRect(Rect.fromLTWH(0, 0, game.size.x, game.size.y), _box);
+    
+    // Player collision box (centered horizontally, bottom-aligned to ground)
+    final playerBoxW = p.size.x * 0.26;
+    final playerBoxH = p.size.y * 0.48;
+    final playerBoxOffset = Offset(
+      p.position.x - playerBoxW / 2,
+      p.position.y + (p.size.y / 2) - playerBoxH,
+    );
+    canvas.drawRect(Rect.fromLTWH(playerBoxOffset.dx, playerBoxOffset.dy, playerBoxW, playerBoxH), _box);
+    
+    final playerAttackDist = (p.size.x + p.size.x) * 0.35;
+    final playerRangePaint = Paint()
+      ..color = Colors.cyan.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawCircle(p.position.toOffset(), playerAttackDist, playerRangePaint);
+    
+    if (game.currentMap == 1) {
+    final e = game.slime;
+    lines.addAll(['[SLIME] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'damage=${DamageConfig.slimeBaseDamage} cooldown=${e.attackCooldown.toStringAsFixed(1)} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
+    // Slime collision box
+    final slimeBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
+    final slimeBoxOffset = Offset(e.position.x - slimeBoxSize.x / 2, e.position.y - slimeBoxSize.y / 2);
+      canvas.drawRect(Rect.fromLTWH(slimeBoxOffset.dx, slimeBoxOffset.dy, slimeBoxSize.x, slimeBoxSize.y), _box);
+    final slimeAttackDist = (e.size.x + p.size.x) * 0.35 * 2;
+    canvas.drawCircle(e.position.toOffset(), slimeAttackDist, playerRangePaint);
+    } else if (game.currentMap == 2) {
+    final e = game.boss;
+    lines.addAll(['[BOSS] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'attack=${DamageConfig.bossAttackDamage} skill=${DamageConfig.bossSkillDamage} state=${e.currentState} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
+    // Boss collision box
+    final bossBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
+    final bossBoxOffset = Offset(e.position.x - bossBoxSize.x / 2, e.position.y - bossBoxSize.y / 2);
+      canvas.drawRect(Rect.fromLTWH(bossBoxOffset.dx, bossBoxOffset.dy, bossBoxSize.x, bossBoxSize.y), _box);
+      canvas.drawCircle(e.position.toOffset(), BossEnemy.activationRange * 1.3, playerRangePaint);
+      canvas.drawCircle(e.position.toOffset(), 120, playerRangePaint);
+    
+      // Minions collision boxes
+      for (final minion in game.children.whereType<BossMinion>().toList()) {
+        final minionBoxSize = Vector2(BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6, BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6);
+      final minionBoxOffset = Offset(minion.position.x - minionBoxSize.x / 2, minion.position.y - minionBoxSize.y / 2);
+        canvas.drawRect(Rect.fromLTWH(minionBoxOffset.dx, minionBoxOffset.dy, minionBoxSize.x, minionBoxSize.y), _box);
+      }
+    }
+    
+    if (p._attacking) {
+      canvas.drawRect(p._meleeHitRect(), _box);
+    }
+    
+    for (var i = 0; i < lines.length; i++) {
+      _text.render(canvas, lines[i], Vector2(10, game.size.y * 0.55 + i * 17));
+    }
+  }
+}
+
+
 class GameSettings {
+  bool debugMode = false;
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
   LogicalKeyboardKey rightKey = LogicalKeyboardKey.arrowRight;
   LogicalKeyboardKey jumpKey = LogicalKeyboardKey.space;
@@ -510,7 +609,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
     _baseAnimations = Map<String, SpriteAnimation>.from(animations!);
     current = 'idle';
-    add(RectangleHitbox());
+    add(RectangleHitbox(
+      size: Vector2(size.x * 0.26, size.y * 0.48),
+      position: Vector2(size.x * 0.37, size.y * 0.52),
+    ));
     _shieldBadge = ShieldBadge(player: this);
     game.add(_shieldBadge);
     await _loadAnimations();
@@ -577,6 +679,31 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     }
   }
 
+  Rect _meleeHitRect() {
+    final width = size.x * 0.38;
+    final height = size.y * 0.50;
+    final left = direction > 0
+        ? position.x + size.x * 0.08
+        : position.x - size.x * 0.08 - width;
+    final bottom = game.size.y - game.size.y * 0.1;
+    return Rect.fromLTWH(
+      left,
+      bottom - height,
+      width,
+      height,
+    );
+  }
+
+  bool _meleeHits(PositionComponent target) {
+    final targetRect = Rect.fromLTWH(
+      target.position.x - target.size.x / 2,
+      target.position.y - target.size.y / 2,
+      target.size.x,
+      target.size.y,
+    );
+    return _meleeHitRect().overlaps(targetRect);
+  }
+
   void _dealMeleeDamage(int step) {
     if (step == 1 && _comboHit1) return;
     if (step == 2 && _comboHit2) return;
@@ -585,26 +712,22 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     } else {
       _comboHit2 = true;
     }
-
+    
     final baseDamage = _getWeaponBaseDamage();
     final totalDamage = baseDamage + dmgBonus + (_squatting ? 5 : 0);
-
+    
     if (game.currentMap == 1) {
       final slime = game.slime;
-      if (!slime._dead &&
-          (position - slime.position).length < (size.x + slime.size.x) * 0.35) {
+      if (!slime._dead && _meleeHits(slime)) {
         slime.takeDamage(totalDamage);
       }
     } else if (game.currentMap == 2) {
       final boss = game.boss;
-      if (!boss.dead &&
-          (position - boss.position).length < (size.x + boss.size.x) * 0.5) {
+      if (!boss.dead && _meleeHits(boss)) {
         boss.takeDamage(totalDamage);
       }
       for (final minion in game.children.whereType<BossMinion>().toList()) {
-        if (!minion.dead &&
-            (position - minion.position).length <
-                (size.x + minion.size.x) * 0.5) {
+        if (!minion.dead && _meleeHits(minion)) {
           minion.takeDamage(totalDamage);
         }
       }
@@ -1112,6 +1235,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
     if (_rolling) {
       _rollTimer += dt;
+      _iframeActive = true;
 
       if (animationTicker?.done() ?? false) {
         _rolling = false;
@@ -1198,9 +1322,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           game.inventory.weaponType != 'bow' &&
           _comboStep == 1 &&
           _comboWindow <= 0.08) {
+        if (!_canUseStamina(StaminaConfig.attackCost)) {
+          _attackHeld = false;
+          return;
+        }
         _comboStep = 2;
         _comboWindow = 0.48;
         current = _attackAnimForCombo(2);
+        consumeStamina(StaminaConfig.attackCost);
         _dealMeleeDamage(2);
       }
 
@@ -1378,7 +1507,10 @@ class SlimeEnemy extends SpriteAnimationComponent
     } catch (e) {
       if (kDebugMode) print('SlimeEnemy load error: $e');
     }
-    add(RectangleHitbox());
+    add(RectangleHitbox(
+      size: Vector2(size.x * 0.6, size.y * 0.35),
+      position: Vector2(size.x * 0.2, size.y * 0.65),
+    ));
   }
 
   @override
@@ -1441,7 +1573,7 @@ class SlimeEnemy extends SpriteAnimationComponent
     vx = directionX * game.size.y * 0.06;
 
     final groundY =
-        game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28;
+        game.size.y - game.size.y * 0.1 - size.y / 2;
     vy += 65 * dt;
     position.y += vy * dt;
     if (position.y >= groundY) {
@@ -1504,6 +1636,7 @@ class NgocRongGame extends FlameGame
   static final Random _shakeRandom = Random();
   final Vector2 _shakeOffset = Vector2.zero();
   double _shakeTimer = 0;
+  double debugElapsed = 0;
   late LocalPlayer player;
   late SpriteComponent background;
   late SpriteComponent background1;
@@ -1518,6 +1651,7 @@ class NgocRongGame extends FlameGame
   int currentMap = 0;
   late SlimeEnemy slime;
   late BossEnemy boss;
+  late DebugOverlay debugOverlay;
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
   final InventoryState inventory = InventoryState();
@@ -1594,6 +1728,8 @@ class NgocRongGame extends FlameGame
       settings: settings,
     )..size = Vector2.all(playerSize);
     add(player);
+    debugOverlay = DebugOverlay();
+    if (settings.debugMode) add(debugOverlay);
     camera.follow(player);
     camera.viewfinder.zoom = 1.0;
     add(chest);
@@ -1608,6 +1744,14 @@ class NgocRongGame extends FlameGame
       player: player,
       position: Vector2(size.x * 0.55, player.position.y),
     );
+  }
+
+  void toggleDebug() {
+    if (settings.debugMode) {
+      if (!children.contains(debugOverlay)) add(debugOverlay);
+    } else {
+      debugOverlay.removeFromParent();
+    }
   }
 
   void openChest() {
@@ -1627,6 +1771,7 @@ class NgocRongGame extends FlameGame
   @override
   void update(double dt) {
     super.update(dt);
+    debugElapsed += dt;
     final minPlayerX = player.size.x / 2;
     final maxPlayerX = size.x - player.size.x / 2;
     if (currentMap == 0 && player.position.x >= maxPlayerX - 1) {

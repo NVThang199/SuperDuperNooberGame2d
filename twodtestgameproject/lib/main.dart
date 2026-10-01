@@ -197,6 +197,7 @@ class _GameScreenState extends State<GameScreen> {
                                               settings: game.settings,
                                               onChanged: () async {
                                                 await _loadLayout();
+                                                game.toggleDebug();
                                                 if (context.mounted)
                                                   setState(() {});
                                               },
@@ -270,10 +271,12 @@ class _GameScreenState extends State<GameScreen> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => game.player.inventoryOpen.value = true,
-                  child: Image.asset(
-                    'assets/images/ui/inventorybagicon.png',
-                    width: 96,
-                    height: 96,
+                  child: _debugBorder(
+                    Image.asset(
+                      'assets/images/ui/inventorybagicon.png',
+                      width: 96,
+                      height: 96,
+                    ),
                   ),
                 ),
               ),
@@ -290,11 +293,13 @@ class _GameScreenState extends State<GameScreen> {
                     _showPauseMenu = !_showPauseMenu;
                     game.isPaused.value = _showPauseMenu;
                   }),
-                  child: Transform.scale(
-                    scale: 4.0,
-                    child: Image.asset(
-                      'assets/images/ui/settingbutton.png',
-                      filterQuality: FilterQuality.none,
+                  child: _debugBorder(
+                    Transform.scale(
+                      scale: 4.0,
+                      child: Image.asset(
+                        'assets/images/ui/settingbutton.png',
+                        filterQuality: FilterQuality.none,
+                      ),
                     ),
                   ),
                 ),
@@ -372,19 +377,21 @@ class _GameScreenState extends State<GameScreen> {
                       valueListenable: game.chestOpenState,
                       builder: (ctx2, isOpen, _) => Align(
                         alignment: const Alignment(0, 0.35),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                        child: _debugBorder(
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              backgroundColor: Colors.amber,
+                              foregroundColor: Colors.black,
                             ),
-                            backgroundColor: Colors.amber,
-                            foregroundColor: Colors.black,
-                          ),
-                          onPressed: () => game.openChest(),
-                          child: Text(
-                            isOpen ? 'Đóng rương' : 'Mở rương',
-                            style: const TextStyle(fontSize: 12),
+                            onPressed: () => game.openChest(),
+                            child: Text(
+                              isOpen ? 'Đóng rương' : 'Mở rương',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
                         ),
                       ),
@@ -557,6 +564,7 @@ class _GameScreenState extends State<GameScreen> {
                               }),
                               onClose: () =>
                                   game.player.inventoryOpen.value = false,
+                              debugMode: game.settings.debugMode,
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -566,6 +574,15 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
+
+  Widget _debugBorder(Widget child) => game.settings.debugMode
+      ? DecoratedBox(
+          decoration: const BoxDecoration(
+            border: Border.fromBorderSide(BorderSide(color: Colors.red)),
+          ),
+          child: child,
+        )
+      : child;
 
   Widget _joystick(Size size, NgocRongGame game) {
     final cfg = _layout.buttons[OverlayButtonId.joystick]!;
@@ -581,18 +598,20 @@ class _GameScreenState extends State<GameScreen> {
       ),
       child: Opacity(
         opacity: cfg.opacity,
-        child: _VirtualJoystick(
-          size: diameter,
-          onChanged: (dx, dy) {
-            if (game.player.isDead) return;
-            _move(dx.abs() < 0.15 ? 0 : dx);
-            game.player.setCrouching(dy > 0.3);
-            if (dy < -0.3) game.player.jump();
-          },
-          onReleased: () {
-            _move(0);
-            game.player.setCrouching(false);
-          },
+        child: _debugBorder(
+          _VirtualJoystick(
+            size: diameter,
+            onChanged: (dx, dy) {
+              if (game.player.isDead) return;
+              _move(dx.abs() < 0.15 ? 0 : dx);
+              game.player.setCrouching(dy > 0.3);
+              if (dy < -0.3) game.player.jump();
+            },
+            onReleased: () {
+              _move(0);
+              game.player.setCrouching(false);
+            },
+          ),
         ),
       ),
     );
@@ -607,7 +626,7 @@ class _GameScreenState extends State<GameScreen> {
       top: (c.anchor.dy * size.height - w / 2).clamp(0.0, size.height - w),
       child: Opacity(
         opacity: c.opacity,
-        child: Transform.scale(scale: scale, child: child),
+        child: _debugBorder(Transform.scale(scale: scale, child: child)),
       ),
     );
   }
