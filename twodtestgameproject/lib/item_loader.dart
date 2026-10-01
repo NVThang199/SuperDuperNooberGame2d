@@ -14,10 +14,14 @@ class ItemLoader {
         );
       }
       final type = parts[4];
-      if (!{
-        'ring', 'necklace', 'bracer', 'armor', 'weapon', 'bow', 'shield', 
-        'helm', 'boots', 'belt', 'artifact', 'cape'
-      }.contains(type)) {
+      final validTypes = {
+        'ring', 'necklace', 'bracer', 'weapon', 'bow', 'shield', 
+        'belt', 'artifact', 'cape',
+        'light helm', 'medium helm', 'heavy helm',
+        'light armor', 'medium armor', 'heavy armor',
+        'light boots', 'medium boots', 'heavy boots',
+      };
+      if (!validTypes.contains(type)) {
         throw FormatException('Invalid item type: $type');
       }
       return InventoryItem(

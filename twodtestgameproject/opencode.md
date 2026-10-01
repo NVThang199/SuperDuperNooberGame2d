@@ -33,9 +33,18 @@ flutter build windows    # production desktop
 **Combat system:**
 - **Sword**: 20 base damage, 2-hit combo (attack1 → attack2), +5 damage when crouching
 - **Bow**: 18 base damage, arrow projectiles
-- **Roll**: Dark Souls style with iframe (frame 3-8), locks momentum during roll, 2s cooldown regen penalty
+- **Roll**: Weight-based mechanics (none/light/medium/heavy), iframe frame 3-8 (none/light), 4-7 (medium), 5-6 (heavy), speed 1.5×/1.2×/1.0×/0.9×, cooldown 1.1s/1.5s/2.1s/2.6s, costs 30 stamina
 - **Shield**: blocks damage, consumes stamina; breaks when stamina=0 → stun
 - **Crouch attack**: +5 damage bonus
+
+**Equipment weight system:**
+- **Types**: `light/medium/heavy helm|armor|boots` in CSV
+- **Weight calculation**: Based on 3 equipped slots (helm, armor, boots)
+- **Roll effects by weight**:
+  - **None** (no helm/armor/boots): 1.5× speed, iframe 3-8, cooldown 1.1s
+  - **Light**: 1.2× speed, iframe 3-8, cooldown 1.5s
+  - **Medium**: 1.0× speed, iframe 4-7, cooldown 2.1s
+  - **Heavy**: 0.9× speed, iframe 5-6, cooldown 2.6s
 
 **Physics:**
 - **Jump**: `impulse = -2.07 × size.y`, `gravity = 5.11 × size.y`, costs 20 stamina

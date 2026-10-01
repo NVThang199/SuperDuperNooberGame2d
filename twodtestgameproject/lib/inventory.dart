@@ -55,12 +55,12 @@ class InventoryState {
   static Map<String, List<String>> _slotTypeCompatibility() => {
     'ring1': ['ring'],
     'ring2': ['ring'],
-    'helm': ['helm'],
+    'helm': ['helm', 'light helm', 'medium helm', 'heavy helm'],
     'weapon1': ['weapon', 'shield', 'bow'],
-    'armor': ['armor'],
+    'armor': ['armor', 'light armor', 'medium armor', 'heavy armor'],
     'weapon2': ['weapon', 'shield', 'bow'],
     'belt': ['belt'],
-    'boots': ['boots'],
+    'boots': ['boots', 'light boots', 'medium boots', 'heavy boots'],
     'artifact': ['artifact'],
     'bracer1': ['bracer'],
     'necklace': ['necklace'],
@@ -83,6 +83,54 @@ class InventoryState {
   }
 
   int get equippedCount => equippedSlots.values.where((v) => v != null).length;
+
+  String get rollWeight {
+    final types = ['helm', 'armor', 'boots'].map((slot) {
+      final id = equippedSlots[slot];
+      if (id == null) return null;
+      return items.cast<InventoryItem?>().firstWhere(
+        (item) => item?.id == id,
+        orElse: () => null,
+      )?.type;
+    }).whereType<String>();
+    if (types.any((type) => type.startsWith('heavy '))) return 'heavy';
+    if (types.any((type) => type.startsWith('medium '))) return 'medium';
+    if (types.any((type) => type.startsWith('light '))) return 'light';
+    return 'none';
+  }
+
+  double get rollSpeedMultiplier => switch (rollWeight) {
+    'heavy' => 0.75,
+    'medium' => 0.95,
+    'light' => 1.3,
+    _ => 2.0,
+  };
+
+  int get rollIframeStart => switch (rollWeight) {
+    'heavy' => 5,
+    'medium' => 4,
+    _ => 3,
+  };
+
+  int get rollIframeEnd => switch (rollWeight) {
+    'heavy' => 6,
+    'medium' => 7,
+    _ => 8,
+  };
+
+  double get rollCooldown => switch (rollWeight) {
+    'heavy' => 2.6,
+    'medium' => 2.1,
+    'light' => 1.5,
+    _ => 1.1,
+  };
+
+  double get rollStaminaCost => switch (rollWeight) {
+    'heavy' => 30.0,
+    'medium' => 25.0,
+    'light' => 20.0,
+    _ => 15.0,
+  };
 
   List<InventoryItem> search(String query, [List<InventoryItem>? items]) {
     final searchItems = items ?? this.items;

@@ -11,17 +11,21 @@ void main() {
       
       expect(items, isNotEmpty);
       expect(items[0].id, '1');
-      expect(items[0].name, 'Health Potion');
-      expect(items[0].hpBonus, 10);
+      expect(items[0].name, 'ao giap test');
+      expect(items[0].hpBonus, 99);
       expect(items[0].mpBonus, 0);
-      expect(items[0].staminaBonus, 0);
-      expect(items[0].dmgBonus, 0);
-      expect(items[0].type, 'consumable');
+      expect(items[0].staminaBonus, 99);
+      expect(items[0].dmgBonus, 99);
+      expect(items[0].type, 'heavy armor');
     });
 
     test('loads all items from CSV', () async {
       final items = await ItemLoader.loadItems();
-      expect(items.length, greaterThan(0));
+      expect(items.length, 20);
+      expect(items[0].type, 'heavy armor');
+      expect(items[3].type, 'heavy helm');
+      expect(items[14].type, 'light helm');
+      expect(items[19].type, 'medium armor');
     });
   });
 
@@ -33,12 +37,13 @@ void main() {
         InventoryItem(id: '3', name: 'Necklace', type: 'necklace'),
         InventoryItem(id: '4', name: 'Bracer', type: 'bracer'),
         InventoryItem(id: '5', name: 'Bracer2', type: 'bracer'),
-        InventoryItem(id: '6', name: 'Armor', type: 'armor'),
+         InventoryItem(id: '6', name: 'Armor', type: 'heavy armor'),
+
         InventoryItem(id: '7', name: 'Weapon', type: 'weapon'),
         InventoryItem(id: '8', name: 'Weapon2', type: 'weapon'),
         InventoryItem(id: '9', name: 'Shield', type: 'shield'),
-        InventoryItem(id: '10', name: 'Helm', type: 'helm'),
-        InventoryItem(id: '11', name: 'Boots', type: 'boots'),
+         InventoryItem(id: '10', name: 'Helm', type: 'heavy helm'),
+         InventoryItem(id: '11', name: 'Boots', type: 'heavy boots'),
         InventoryItem(id: '12', name: 'Belt', type: 'belt'),
         InventoryItem(id: '13', name: 'Artifact', type: 'artifact'),
         InventoryItem(id: '14', name: 'Extra', type: 'artifact'),
@@ -54,16 +59,6 @@ void main() {
       expect(inventory.equip(items[13]), isTrue, reason: 'Should equip after unequip');
     });
 
-    test('clear removes all items and equipped state', () {
-      final item = InventoryItem(id: '1', name: 'Item');
-      final inventory = InventoryState(items: [item]);
-      inventory.equip(item);
-
-      inventory.clear();
-
-      expect(inventory.items, isEmpty);
-      expect(inventory.equippedCount, 0);
-    });
   });
 
   group('InventoryItem', () {

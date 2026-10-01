@@ -468,11 +468,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           loop: false,
         ),
       ),
-      if (character.rollFile.isNotEmpty)
+       if (character.rollFile.isNotEmpty)
         'roll': _loadAnim(
           character.rollPath,
           character.rollFrameCount,
-          character.rollStepTime,
+          character.rollStepTime / game.inventory.rollSpeedMultiplier,
           character.textureSize,
           loop: false,
         ),
@@ -680,19 +680,33 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   }
 
   void roll() {
-    if (_dead || !_canUseStamina(StaminaConfig.rollCost) ||
+    final rollCost = game.inventory.rollStaminaCost;
+    if (_dead || !_canUseStamina(rollCost) ||
         _rolling ||
         _stunned ||
         !isOnGround) {
       return;
     }
-    stamina -= StaminaConfig.rollCost;
+    stamina -= rollCost;
     staminaNotifier.value = stamina;
     _rolling = true;
     _rollTimer = 0;
     _iframeActive = false;
-    _rollCooldownDelay = 2.0;
-    _targetVx = direction * movementSpeed;
+    _rollCooldownDelay = game.inventory.rollCooldown;
+    _targetVx = direction * movementSpeed * game.inventory.rollSpeedMultiplier;
+
+    final newRollAnim = _loadAnim(
+      character.rollPath,
+      character.rollFrameCount,
+      character.rollStepTime / game.inventory.rollSpeedMultiplier,
+      character.textureSize,
+      loop: false,
+    );
+
+    final updatedAnimations = Map<String, SpriteAnimation>.from(animations!);
+    updatedAnimations['roll'] = newRollAnim;
+    animations = updatedAnimations;
+
     _updateAnimation();
   }
 
@@ -1098,15 +1112,8 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
     if (_rolling) {
       _rollTimer += dt;
-      final frame = (_rollTimer / character.rollStepTime).floor();
 
-      if (frame >= 3 && frame <= 8) {
-        _iframeActive = true;
-      } else {
-        _iframeActive = false;
-      }
-
-      if (frame >= character.rollFrameCount) {
+      if (animationTicker?.done() ?? false) {
         _rolling = false;
         _rollTimer = 0;
         _iframeActive = false;

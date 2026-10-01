@@ -1,19 +1,21 @@
 id,name,imagePath,rarity,type,hpBonus,mpBonus,staminaBonus,dmgBonus,defenseBonus,description
-1,ao giap test,assets/item/64x64/fc2050.png,legendary,armor,99,0,99,99,99,placeholdertextabc123
+1,ao giap test,assets/item/64x64/fc2050.png,legendary,heavy armor,99,0,99,99,99,placeholdertextabc123
 2,ring test 1,assets/item/64x64/fc2188.png,legendary,ring,99,0,99,99,99,placeholdertextabc124
 3,ring test 2,assets/item/64x64/fc2189.png,legendary,ring,99,0,99,99,99,placeholdertextabc125
-4,helmet test,assets/item/64x64/fc1832.png,legendary,helm,99,0,99,99,99,placeholdertextabc126
+4,helmet test,assets/item/64x64/fc1832.png,legendary,heavy helm,99,0,99,99,99,placeholdertextabc126
 5,weapon test 1,assets/item/64x64/fc1739.png,legendary,weapon,99,0,99,99,99,placeholdertextabc127
 6,weapon test 2,assets/item/64x64/fc1743.png,legendary,weapon,99,0,99,99,99,placeholdertextabc128
 7,shield test,assets/item/64x64/fc665.png,legendary,shield,99,0,99,99,99,placeholdertextabc129
 8,belt test,assets/item/64x64/fc2069.png,legendary,belt,99,0,99,99,99,placeholdertextabc130
-9,boots test,assets/item/64x64/fc1855.png,legendary,boots,99,0,99,99,99,placeholdertextabc131
+9,boots test,assets/item/64x64/fc1855.png,legendary,heavy boots,99,0,99,99,99,placeholdertextabc131
 10,artifact test,assets/item/64x64/fc69.png,legendary,artifact,99,0,99,99,99,placeholdertextabc132
 11,bracer test,assets/item/64x64/fc2192.png,legendary,bracer,99,0,99,99,99,placeholdertextabc133
 12,necklace test,assets/item/64x64/fc2181.png,legendary,necklace,99,0,99,99,99,placeholdertextabc134
 13,cape test,assets/item/64x64/fc2071.png,legendary,cape,99,0,99,99,99,placeholdertextabc135
 14,cung test,assets/item/64x64/fc1699.png,legendary,bow,99,0,99,99,99,placeholdertextabc136
-15,placeholder2,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc137
-16,placeholder3,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc138
-17,placeholder4,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc139
-18,placeholder5,assets/item/64x64/fc284.png,legendary,artifact,99,0,99,99,99,placeholdertextabc140
+15,light helm test,assets/item/64x64/fc2001.png,legendary,light helm,99,0,99,99,99,placeholdertextabc141
+16,light boots test,assets/item/64x64/fc667.png,legendary,light boots,99,0,99,99,99,placeholdertextabc142
+17,light armor test,assets/item/64x64/fc2096.png,legendary,light armor,99,0,99,99,99,placeholdertextabc143
+18,medium helm test,assets/item/64x64/fc1835.png,legendary,medium helm,99,0,99,99,99,placeholdertextabc144
+19,medium boots test,assets/item/64x64/fc2163.png,legendary,medium boots,99,0,99,99,99,placeholdertextabc145
+20,medium armor test,assets/item/64x64/fc2025.png,legendary,medium armor,99,0,99,99,99,placeholdertextabc146
