@@ -33,10 +33,9 @@ flutter:
     - assets/images/environment/
     - assets/images/action/
     - assets/images/ui/
-    - assets/images/skill_select/
     - assets/images/ui/inventory/
     - assets/images/background/
-    - assets/images/background/NightForest/
-    - assets/images/background/NightForest/Layers/
     - assets/item/
     - assets/item/64x64/
+    - assets/images/background/forest_map2.png
+    - assets/images/scull.png

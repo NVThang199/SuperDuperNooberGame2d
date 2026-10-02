@@ -12,8 +12,6 @@ import 'overlay_editor.dart';
 import 'game.dart';
 import 'settings_page.dart';
 import 'inventory.dart';
-import 'skill_config.dart';
-import 'skill_selection.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -91,7 +89,6 @@ class _GameScreenState extends State<GameScreen> {
   late final game = NgocRongGame(character: widget.character);
   OverlayLayout _layout = OverlayLayout.defaults();
   bool _showPauseMenu = false;
-  SkillConfig _selectedSkill = SkillConfig.allSkills.first;
 
   @override
   void initState() {
@@ -121,6 +118,37 @@ class _GameScreenState extends State<GameScreen> {
         child: Stack(
           children: [
             GameWidget(game: game),
+            ValueListenableBuilder<bool>(
+              valueListenable: game.mapSelectionVisible,
+              builder: (context, visible, _) {
+                if (!visible) return const SizedBox.shrink();
+                return Center(
+                  child: Material(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('CHỌN MAP', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(onPressed: () => game.selectMap(1), child: const Text('MAP 1')),
+                              const SizedBox(width: 12),
+                              ElevatedButton(onPressed: () => game.selectMap(2), child: const Text('MAP 2')),
+                            ],
+                          ),
+                          TextButton(onPressed: () => game.mapSelector.showUI.value = false, child: const Text('ĐÓNG')),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
             if (_showPauseMenu)
               Center(
                 child: Container(
@@ -200,6 +228,7 @@ class _GameScreenState extends State<GameScreen> {
                                               settings: game.settings,
                                               onChanged: () async {
                                                 await _loadLayout();
+                                                game.toggleDebug();
                                                 if (context.mounted)
                                                   setState(() {});
                                               },
@@ -273,10 +302,12 @@ class _GameScreenState extends State<GameScreen> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => game.player.inventoryOpen.value = true,
-                  child: Image.asset(
-                    'assets/images/ui/inventorybagicon.png',
-                    width: 96,
-                    height: 96,
+                  child: _debugBorder(
+                    Image.asset(
+                      'assets/images/ui/inventorybagicon.png',
+                      width: 96,
+                      height: 96,
+                    ),
                   ),
                 ),
               ),
@@ -293,11 +324,13 @@ class _GameScreenState extends State<GameScreen> {
                     _showPauseMenu = !_showPauseMenu;
                     game.isPaused.value = _showPauseMenu;
                   }),
-                  child: Transform.scale(
-                    scale: 4.0,
-                    child: Image.asset(
-                      'assets/images/ui/settingbutton.png',
-                      filterQuality: FilterQuality.none,
+                  child: _debugBorder(
+                    Transform.scale(
+                      scale: 4.0,
+                      child: Image.asset(
+                        'assets/images/ui/settingbutton.png',
+                        filterQuality: FilterQuality.none,
+                      ),
                     ),
                   ),
                 ),
@@ -375,19 +408,21 @@ class _GameScreenState extends State<GameScreen> {
                       valueListenable: game.chestOpenState,
                       builder: (ctx2, isOpen, _) => Align(
                         alignment: const Alignment(0, 0.35),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                        child: _debugBorder(
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              backgroundColor: Colors.amber,
+                              foregroundColor: Colors.black,
                             ),
-                            backgroundColor: Colors.amber,
-                            foregroundColor: Colors.black,
-                          ),
-                          onPressed: () => game.openChest(),
-                          child: Text(
-                            isOpen ? 'Đóng rương' : 'Mở rương',
-                            style: const TextStyle(fontSize: 12),
+                            onPressed: () => game.openChest(),
+                            child: Text(
+                              isOpen ? 'Đóng rương' : 'Mở rương',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
                         ),
                       ),
@@ -560,6 +595,7 @@ class _GameScreenState extends State<GameScreen> {
                               }),
                               onClose: () =>
                                   game.player.inventoryOpen.value = false,
+                              debugMode: game.settings.debugMode,
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -569,6 +605,15 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
+
+  Widget _debugBorder(Widget child) => game.settings.debugMode
+      ? DecoratedBox(
+          decoration: const BoxDecoration(
+            border: Border.fromBorderSide(BorderSide(color: Colors.red)),
+          ),
+          child: child,
+        )
+      : child;
 
   Widget _joystick(Size size, NgocRongGame game) {
     final cfg = _layout.buttons[OverlayButtonId.joystick]!;
@@ -584,18 +629,20 @@ class _GameScreenState extends State<GameScreen> {
       ),
       child: Opacity(
         opacity: cfg.opacity,
-        child: _VirtualJoystick(
-          size: diameter,
-          onChanged: (dx, dy) {
-            if (game.player.isDead) return;
-            _move(dx.abs() < 0.15 ? 0 : dx);
-            game.player.setCrouching(dy > 0.3);
-            if (dy < -0.3) game.player.jump();
-          },
-          onReleased: () {
-            _move(0);
-            game.player.setCrouching(false);
-          },
+        child: _debugBorder(
+          _VirtualJoystick(
+            size: diameter,
+            onChanged: (dx, dy) {
+              if (game.player.isDead) return;
+              _move(dx.abs() < 0.15 ? 0 : dx);
+              game.player.setCrouching(dy > 0.3);
+              if (dy < -0.3) game.player.jump();
+            },
+            onReleased: () {
+              _move(0);
+              game.player.setCrouching(false);
+            },
+          ),
         ),
       ),
     );
@@ -610,7 +657,7 @@ class _GameScreenState extends State<GameScreen> {
       top: (c.anchor.dy * size.height - w / 2).clamp(0.0, size.height - w),
       child: Opacity(
         opacity: c.opacity,
-        child: Transform.scale(scale: scale, child: child),
+        child: _debugBorder(Transform.scale(scale: scale, child: child)),
       ),
     );
   }

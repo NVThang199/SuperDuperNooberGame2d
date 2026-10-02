@@ -121,9 +121,20 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: const Text('MỞ'),
                   ),
                 ),
-                SwitchListTile(
-                  title: const Text(
-                    'Hiện điều khiển cảm ứng',
+                 SwitchListTile(
+                   title: const Text(
+                     'Chế độ Debug',
+                     style: TextStyle(color: Colors.white),
+                   ),
+                   value: _s.debugMode,
+                   onChanged: (value) {
+                     setState(() => _s.debugMode = value);
+                     widget.onChanged();
+                   },
+                 ),
+                 SwitchListTile(
+                   title: const Text(
+                     'Hiện điều khiển cảm ứng',
                     style: TextStyle(color: Colors.white),
                   ),
                   value: _s.showMobileControls,

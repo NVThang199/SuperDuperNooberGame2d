@@ -1,23 +1,18 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
+import 'dart:ui' as ui show lerpDouble, Image, Canvas, Offset, Rect, Paint, Color;
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame/events.dart'
-    hide PointerMoveEvent;
-import 'package:flame/parallax.dart';
+    hide PointerMoveEvent, PointerDownEvent, PointerUpEvent;
 import 'package:flutter/gestures.dart'
     show PointerMoveEvent, PointerDownEvent, PointerUpEvent;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
-import 'inventory.dart';
-import 'item_loader.dart';
+import 'package:flutter/material.dart' hide Image;
 
-import 'inventory.dart';
-import 'item_loader.dart';
 import 'inventory.dart';
 import 'item_loader.dart';
 
@@ -36,7 +31,108 @@ class DamageConfig {
   static const double bossMinionDamage = 5.0;
 }
 
+class DebugOverlay extends PositionComponent with HasGameReference<NgocRongGame> {
+  final TextPaint _text = TextPaint(
+    style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.bold),
+  );
+  final Paint _box = Paint()
+    ..color = Colors.red
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+
+  @override
+  void render(Canvas canvas) {
+    if (!game.settings.debugMode) return;
+    final p = game.player;
+    
+    final groundY = game.size.y - game.size.y * 0.1;
+    final lines = <String>[
+    '[DEBUG] map=${game.currentMap} elapsed=${game.debugElapsed.toStringAsFixed(1)}s ground=${groundY.toStringAsFixed(1)}',
+    '[IFRAME: ${p._iframeActive ? "ACTIVE" : "INACTIVE"}]',
+    'Map bounds: X[0, ${game.size.x.toStringAsFixed(1)}] Y[0, ${game.size.y.toStringAsFixed(1)}]',
+    '[PLAYER] pos=${p.position.x.toStringAsFixed(1)},${p.position.y.toStringAsFixed(1)} vel=(${p.vx.toStringAsFixed(1)},${p.vy.toStringAsFixed(1)})',
+    'HP=${p.health.toStringAsFixed(1)}/${p.maxHealth} stamina=${p.stamina.toStringAsFixed(1)}/${p.maxStamina}',
+    'damage=${(p.baseDamage + p.dmgBonus).toStringAsFixed(1)} defense=${p.defenseBonus} shield=${p.shield.toStringAsFixed(1)}',
+    'anim=${p.current} weight=${p.inventory.rollWeight}',
+    'Inv Slots: ${p.inventory.items.length}/${InventoryState.slotsPerPage} Equipped: ${p.inventory.equippedCount}/${InventoryState.maxEquippedItems}',
+    'physics jump=${p.jumpImpulse.toStringAsFixed(1)} gravity=${p.gravity.toStringAsFixed(1)} speed=${p.movementSpeed.toStringAsFixed(1)}',
+    'hitbox w=${(p.size.x * 0.26).toStringAsFixed(1)} h=${(p.size.y * 0.48).toStringAsFixed(1)}',
+    ];
+    
+    final groundPaint = Paint()
+    ..color = Colors.yellow
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+    canvas.drawLine(Offset(0, groundY), Offset(game.size.x, groundY), groundPaint);
+    
+    final redPaint = Paint()
+    ..color = Colors.red
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+    final minX = p.size.x / 2;
+    final maxX = game.size.x - p.size.x / 2;
+    canvas.drawLine(Offset(minX, 0), Offset(minX, game.size.y), redPaint);
+    canvas.drawLine(Offset(maxX, 0), Offset(maxX, game.size.y), redPaint);
+    
+    // Map boundary visuals
+    canvas.drawRect(Rect.fromLTWH(0, 0, game.size.x, game.size.y), _box);
+    
+    // Player collision box (centered horizontally, bottom-aligned to ground)
+    final playerBoxW = p.size.x * 0.26;
+    final playerBoxH = p.size.y * 0.48;
+    final playerBoxOffset = Offset(
+      p.position.x - playerBoxW / 2,
+      p.position.y + (p.size.y / 2) - playerBoxH,
+    );
+    canvas.drawRect(Rect.fromLTWH(playerBoxOffset.dx, playerBoxOffset.dy, playerBoxW, playerBoxH), _box);
+    
+    final playerAttackDist = (p.size.x + p.size.x) * 0.35;
+    final playerRangePaint = Paint()
+      ..color = Colors.cyan.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawCircle(p.position.toOffset(), playerAttackDist, playerRangePaint);
+    
+    if (game.currentMap == 1) {
+    final e = game.slime;
+    lines.addAll(['[SLIME] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'damage=${DamageConfig.slimeBaseDamage} cooldown=${e.attackCooldown.toStringAsFixed(1)} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
+    // Slime collision box
+    final slimeBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
+    final slimeBoxOffset = Offset(e.position.x - slimeBoxSize.x / 2, e.position.y - slimeBoxSize.y / 2);
+      canvas.drawRect(Rect.fromLTWH(slimeBoxOffset.dx, slimeBoxOffset.dy, slimeBoxSize.x, slimeBoxSize.y), _box);
+    final slimeAttackDist = (e.size.x + p.size.x) * 0.35 * 2;
+    canvas.drawCircle(e.position.toOffset(), slimeAttackDist, playerRangePaint);
+    } else if (game.currentMap == 2) {
+    final e = game.boss;
+    lines.addAll(['[BOSS] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'attack=${DamageConfig.bossAttackDamage} skill=${DamageConfig.bossSkillDamage} state=${e.currentState} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
+    // Boss collision box
+    final bossBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
+    final bossBoxOffset = Offset(e.position.x - bossBoxSize.x / 2, e.position.y - bossBoxSize.y / 2);
+      canvas.drawRect(Rect.fromLTWH(bossBoxOffset.dx, bossBoxOffset.dy, bossBoxSize.x, bossBoxSize.y), _box);
+      canvas.drawCircle(e.position.toOffset(), BossEnemy.activationRange * 1.3, playerRangePaint);
+      canvas.drawCircle(e.position.toOffset(), 120, playerRangePaint);
+    
+      // Minions collision boxes
+      for (final minion in game.children.whereType<BossMinion>().toList()) {
+        final minionBoxSize = Vector2(BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6, BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6);
+      final minionBoxOffset = Offset(minion.position.x - minionBoxSize.x / 2, minion.position.y - minionBoxSize.y / 2);
+        canvas.drawRect(Rect.fromLTWH(minionBoxOffset.dx, minionBoxOffset.dy, minionBoxSize.x, minionBoxSize.y), _box);
+      }
+    }
+    
+    if (p._attacking) {
+      canvas.drawRect(p._meleeHitRect(), _box);
+    }
+    
+    for (var i = 0; i < lines.length; i++) {
+      _text.render(canvas, lines[i], Vector2(10, game.size.y * 0.55 + i * 17));
+    }
+  }
+}
+
+
 class GameSettings {
+  bool debugMode = false;
   LogicalKeyboardKey leftKey = LogicalKeyboardKey.arrowLeft;
   LogicalKeyboardKey rightKey = LogicalKeyboardKey.arrowRight;
   LogicalKeyboardKey jumpKey = LogicalKeyboardKey.space;
@@ -464,8 +560,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       'stun': SpriteAnimation.fromFrameData(
         game.images.fromCache(character.deathPath),
         SpriteAnimationData.sequenced(
-          amount: 1, stepTime: 1, textureSize: character.textureSize,
-          texturePosition: Vector2(character.textureSize.x, 0), loop: false,
+          amount: 1,
+          stepTime: 1,
+          textureSize: character.textureSize,
+          texturePosition: Vector2(character.textureSize.x, 0),
+          loop: false,
         ),
       ),
        if (character.rollFile.isNotEmpty)
@@ -510,7 +609,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
     _baseAnimations = Map<String, SpriteAnimation>.from(animations!);
     current = 'idle';
-    add(RectangleHitbox());
+    add(RectangleHitbox(
+      size: Vector2(size.x * 0.26, size.y * 0.48),
+      position: Vector2(size.x * 0.37, size.y * 0.52),
+    ));
     _shieldBadge = ShieldBadge(player: this);
     game.add(_shieldBadge);
     await _loadAnimations();
@@ -577,6 +679,31 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     }
   }
 
+  Rect _meleeHitRect() {
+    final width = size.x * 0.38;
+    final height = size.y * 0.50;
+    final left = direction > 0
+        ? position.x + size.x * 0.08
+        : position.x - size.x * 0.08 - width;
+    final bottom = game.size.y - game.size.y * 0.1;
+    return Rect.fromLTWH(
+      left,
+      bottom - height,
+      width,
+      height,
+    );
+  }
+
+  bool _meleeHits(PositionComponent target) {
+    final targetRect = Rect.fromLTWH(
+      target.position.x - target.size.x / 2,
+      target.position.y - target.size.y / 2,
+      target.size.x,
+      target.size.y,
+    );
+    return _meleeHitRect().overlaps(targetRect);
+  }
+
   void _dealMeleeDamage(int step) {
     if (step == 1 && _comboHit1) return;
     if (step == 2 && _comboHit2) return;
@@ -585,26 +712,22 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     } else {
       _comboHit2 = true;
     }
-
+    
     final baseDamage = _getWeaponBaseDamage();
     final totalDamage = baseDamage + dmgBonus + (_squatting ? 5 : 0);
-
+    
     if (game.currentMap == 1) {
       final slime = game.slime;
-      if (!slime._dead &&
-          (position - slime.position).length < (size.x + slime.size.x) * 0.35) {
+      if (!slime._dead && _meleeHits(slime)) {
         slime.takeDamage(totalDamage);
       }
     } else if (game.currentMap == 2) {
       final boss = game.boss;
-      if (!boss.dead &&
-          (position - boss.position).length < (size.x + boss.size.x) * 0.5) {
+      if (!boss.dead && _meleeHits(boss)) {
         boss.takeDamage(totalDamage);
       }
       for (final minion in game.children.whereType<BossMinion>().toList()) {
-        if (!minion.dead &&
-            (position - minion.position).length <
-                (size.x + minion.size.x) * 0.5) {
+        if (!minion.dead && _meleeHits(minion)) {
           minion.takeDamage(totalDamage);
         }
       }
@@ -926,7 +1049,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       animation: anim,
       size: Vector2.all(size.y * 1.15),
     );
-    game.world.add(dust);
+    game.add(dust);
   }
 
   void _spawnRunPushDust() {
@@ -942,7 +1065,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       size: Vector2.all(size.y * 1.15),
     );
     dust.scale.x = direction < 0 ? -1 : 1;
-    game.world.add(dust);
+    game.add(dust);
   }
 
   void jump() {
@@ -1034,9 +1157,13 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       else if (event.logicalKey == settings.runKey) {
         _keysPressed.add(event.logicalKey);
         setRunning(true);
-      } else if (event.logicalKey == settings.chestKey)
-        game.openChest();
-      else if (event.logicalKey == settings.inventoryKey) {
+      } else if (event.logicalKey == settings.chestKey) {
+        if (game.canOpenChest.value) {
+          game.openChest();
+        } else if (game.currentMap == 0) {
+          game.mapSelector.interact();
+        }
+      } else if (event.logicalKey == settings.inventoryKey) {
         inventoryOpen.value = !inventoryOpen.value;
       } else if (inventoryOpen.value && event.logicalKey == settings.leftKey) {
         inventoryPage.value = (inventoryPage.value - 1).clamp(0, 99);
@@ -1112,6 +1239,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
 
     if (_rolling) {
       _rollTimer += dt;
+      _iframeActive = true;
 
       if (animationTicker?.done() ?? false) {
         _rolling = false;
@@ -1124,11 +1252,10 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       }
     }
 
-    vx = lerpDouble(vx, _targetVx, (6 * dt).clamp(0.0, 1.0))!;
+    vx = ui.lerpDouble(vx, _targetVx, (6 * dt).clamp(0.0, 1.0))!;
     vy += gravity * dt;
     final wasOnGround = isOnGround;
     position.x += vx * dt;
-    position.x = position.x.clamp(game.worldLeft, game.worldRight);
     position.y += vy * dt;
 
     final groundHeight = game.size.y * 0.1;
@@ -1181,6 +1308,11 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
         _stunTimer = 0;
         current = 'idle';
       }
+    } else {
+      final minX = size.x / 2;
+      final maxX = game.size.x - size.x / 2;
+      if (position.x < minX) position.x = minX;
+      if (position.x > maxX) position.x = maxX;
     }
 
     if (_attacking) {
@@ -1194,9 +1326,14 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
           game.inventory.weaponType != 'bow' &&
           _comboStep == 1 &&
           _comboWindow <= 0.08) {
+        if (!_canUseStamina(StaminaConfig.attackCost)) {
+          _attackHeld = false;
+          return;
+        }
         _comboStep = 2;
         _comboWindow = 0.48;
         current = _attackAnimForCombo(2);
+        consumeStamina(StaminaConfig.attackCost);
         _dealMeleeDamage(2);
       }
 
@@ -1258,7 +1395,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     }
   }
 
-   void _respawn() {
+  void _respawn() {
     position.setValues(
       game.size.x * 0.2,
       game.size.y - game.size.y * 0.1 - size.y / 2,
@@ -1272,14 +1409,16 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     // Switch to map 0 via game.update logic
     game.currentMap = 0;
     if (game.currentMap == 0) {
-      game.world.removeAll(game.world.children.whereType<DoubleJumpDust>());
+      game.background1.removeFromParent();
+      game.add(game.background);
+      game.removeAll(game.children.whereType<DoubleJumpDust>());
       game.slime.removeFromParent();
       game.boss.health = game.boss.maxHealth;
       game.boss.resetState();
       game.boss.removeFromParent();
-      game.world.removeAll(game.world.children.whereType<BossMinion>());
-      game.world.add(game.chest);
-      game.world.add(game.fire);
+      game.removeAll(game.children.whereType<BossMinion>());
+      game.add(game.chest);
+      game.add(game.fire);
     }
     current = 'idle';
   }
@@ -1318,7 +1457,7 @@ class SlimeEnemy extends SpriteAnimationComponent
         priority: 2,
       );
 
-@override
+  @override
   Future<void> onLoad() async {
     try {
       final walkImg = await game.images.load(
@@ -1372,7 +1511,10 @@ class SlimeEnemy extends SpriteAnimationComponent
     } catch (e) {
       if (kDebugMode) print('SlimeEnemy load error: $e');
     }
-    add(RectangleHitbox());
+    add(RectangleHitbox(
+      size: Vector2(size.x * 0.6, size.y * 0.35),
+      position: Vector2(size.x * 0.2, size.y * 0.65),
+    ));
   }
 
   @override
@@ -1421,7 +1563,8 @@ class SlimeEnemy extends SpriteAnimationComponent
 
     // Attack if close & cooldown over
     if (_attackCooldown <= 0 &&
-        (player.position - position).length < (size.x + player.size.x) * 0.35 * 2) {
+        (player.position - position).length <
+            (size.x + player.size.x) * 0.35 * 2) {
       _attacking = true;
       _attackTimer = 0.9;
       _attackCooldown = 7.0;
@@ -1434,7 +1577,7 @@ class SlimeEnemy extends SpriteAnimationComponent
     vx = directionX * game.size.y * 0.06;
 
     final groundY =
-        game.size.y - game.size.y * 0.1 - size.y / 2 + player.size.y * 0.28;
+        game.size.y - game.size.y * 0.1 - size.y / 2;
     vy += 65 * dt;
     position.y += vy * dt;
     if (position.y >= groundY) {
@@ -1442,6 +1585,14 @@ class SlimeEnemy extends SpriteAnimationComponent
       vy = 0;
     }
     position.x += vx * dt;
+
+    final minX = game.size.x * 0.40;
+    final maxX = game.size.x * 0.60;
+    if (position.x < minX || position.x > maxX) {
+      position.x = position.x.clamp(minX, maxX);
+      directionX *= -1;
+      _patrolTimer = 2.0;
+    }
   }
 
   void takeDamage(double damage) {
@@ -1484,16 +1635,71 @@ class SlimeEnemy extends SpriteAnimationComponent
   }
 }
 
+class MapSelector extends SpriteAnimationComponent
+    with HasGameReference<NgocRongGame>, TapCallbacks {
+  ValueNotifier<bool> get showUI => game.mapSelectionVisible;
+  final ValueNotifier<bool> canInteract = ValueNotifier(false);
+  late final TextPaint _promptText;
+
+  /// Sheet is 96x144: 2 columns x 3 rows, so each frame is 48x48.
+  MapSelector({required Vector2 position, required ui.Image image, required double displayHeight})
+      : super(
+          position: position,
+          size: Vector2.all(displayHeight),
+          anchor: Anchor.center,
+          priority: 2,
+          playing: true,
+        ) {
+    _promptText = TextPaint(
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+    animation = SpriteAnimation.fromFrameData(
+      image,
+      SpriteAnimationData.sequenced(
+        amount: 6,
+        stepTime: 0.15,
+        textureSize: Vector2.all(48),
+        loop: true,
+      ),
+    );
+  }
+
+  void checkProximity(Vector2 playerPos) {
+    canInteract.value = (position - playerPos).length < size.y * 2;
+  }
+
+  void interact() {
+    if (canInteract.value) showUI.value = true;
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) => interact();
+
+  @override
+  bool containsLocalPoint(Vector2 point) => canInteract.value;
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    if (!canInteract.value) return;
+    _promptText.render(canvas, 'CHẠM ĐỂ MỞ MAP', Vector2(-58, -size.y / 2 - 20));
+  }
+}
+
 class NgocRongGame extends FlameGame
     with HasCollisionDetection, HasKeyboardHandlerComponents {
   static final Random _shakeRandom = Random();
   final Vector2 _shakeOffset = Vector2.zero();
   double _shakeTimer = 0;
-  double _lastCamX = 0;
-  double get worldLeft => 0;
-  double get worldRight => size.x * 3;
+  double debugElapsed = 0;
   late LocalPlayer player;
-  late ParallaxComponent nightForestParallax;
+  late SpriteComponent background;
+  late SpriteComponent background1;
+  late SpriteComponent background2;
   late SpriteComponent chest;
   late SpriteAnimationComponent fire;
   late Sprite chestOpenSprite;
@@ -1501,76 +1707,49 @@ class NgocRongGame extends FlameGame
   final CharacterConfig character;
   final ValueNotifier<bool> canOpenChest = ValueNotifier(false);
   final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
+  int currentMap = 0;
   late SlimeEnemy slime;
   late BossEnemy boss;
-  int currentMap = 0;
-  /// Distance travelled rightwards from the spawn point, in world pixels.
-  final ValueNotifier<double> distanceTravelled = ValueNotifier(0);
-  /// World Y of the walkable surface (bottom 10% of viewport is ground).
-  static double groundLine(double viewportHeight) => viewportHeight * 0.9;
+  late DebugOverlay debugOverlay;
+  late MapSelector mapSelector;
+  late ui.Image scullImage;
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
+  final ValueNotifier<bool> mapSelectionVisible = ValueNotifier(false);
   final InventoryState inventory = InventoryState();
   List<InventoryItem> itemCatalog = [];
+
   NgocRongGame({required this.character});
 
   @override
   Future<void> onLoad() async {
     itemCatalog = await ItemLoader.loadItems();
     inventory.items.addAll(itemCatalog);
-
-    // Load NightForest parallax background manually
-    final layer1 = await images.load('background/NightForest/Layers/1.png');
-    final layer2 = await images.load('background/NightForest/Layers/2.png');
-    final layer3 = await images.load('background/NightForest/Layers/3.png');
-    final layer4 = await images.load('background/NightForest/Layers/4.png');
-    final layer5 = await images.load('background/NightForest/Layers/5.png');
-    final layer6 = await images.load('background/NightForest/Layers/6.png');
-
-    final parallax = Parallax([
-      ParallaxLayer(
-        ParallaxImage(layer1, repeat: ImageRepeat.repeat),
-        velocityMultiplier: Vector2(0.1, 0),
-      ),
-      ParallaxLayer(
-        ParallaxImage(layer2, repeat: ImageRepeat.repeat),
-        velocityMultiplier: Vector2(0.2, 0),
-      ),
-      ParallaxLayer(
-        ParallaxImage(layer3, repeat: ImageRepeat.repeat),
-        velocityMultiplier: Vector2(0.3, 0),
-      ),
-      ParallaxLayer(
-        ParallaxImage(layer4, repeat: ImageRepeat.repeat),
-        velocityMultiplier: Vector2(0.4, 0),
-      ),
-      ParallaxLayer(
-        ParallaxImage(layer5, repeat: ImageRepeat.repeat),
-        velocityMultiplier: Vector2(0.5, 0),
-      ),
-      ParallaxLayer(
-        ParallaxImage(layer6, repeat: ImageRepeat.repeat),
-        velocityMultiplier: Vector2(0.6, 0),
-      ),
-    ], baseVelocity: Vector2.zero(), size: size);
-
-    nightForestParallax = ParallaxComponent(
-      parallax: parallax,
-      position: Vector2.zero(),
+    final forest = await images.load('background/forest.png');
+    background = SpriteComponent(
+      sprite: Sprite(forest),
       size: size.clone(),
-      anchor: Anchor.topLeft,
       priority: -1,
     );
-    camera.backdrop.add(nightForestParallax);
-    // DEBUG: comment out to test visibility
-    // camera.backdrop.remove(nightForestParallax);
+    add(background);
+
+    final forest1 = await images.load('background/forest_map1.png');
+    background1 = SpriteComponent(
+      sprite: Sprite(forest1),
+      size: size.clone(),
+      priority: -1,
+    );
+    final forest2 = await images.load('background/forest_map2.png');
+    background2 = SpriteComponent(
+      sprite: Sprite(forest2),
+      size: size.clone(),
+      priority: -1,
+    );
 
     final chestImg = await images.load('environment/Chest.png');
-    final groundHeight = size.y * 0.1;
-    final groundY = size.y - groundHeight;
     final chestPos = Vector2(
-      400, // fixed world X
-      groundY - size.y * 0.15 / 2,
+      size.x * 0.7,
+      size.y - size.y * 0.1 - size.y * 0.2 + size.y * 0.08,
     );
     chest = SpriteComponent(
       sprite: Sprite(
@@ -1599,40 +1778,55 @@ class NgocRongGame extends FlameGame
         ),
       ),
       size: Vector2.all(size.y * 0.12),
-      position: Vector2(200, groundY - size.y * 0.06), // fixed world X
+      position: Vector2(size.x * 0.3, size.y - size.y * 0.1 - size.y * 0.06),
       priority: 0,
     );
 
     final playerSize = size.y * 0.4;
     final groundHeight = size.y * 0.1;
     player = LocalPlayer(
-      position: Vector2(spawnX, groundY - playerSize / 2),
+      position: Vector2(size.x / 2, size.y - groundHeight - playerSize / 2),
       character: character,
       settings: settings,
     )..size = Vector2.all(playerSize);
-    world.add(player);
-    camera.follow(player, horizontalOnly: true);
-    // Center camera Y on viewport middle
-    camera.viewfinder.position = Vector2(spawnX, size.y / 2);
+    add(player);
+    debugOverlay = DebugOverlay();
+    if (settings.debugMode) add(debugOverlay);
+    camera.follow(player);
     camera.viewfinder.zoom = 1.0;
-    _lastCamX = camera.viewfinder.position.x;
-    world.add(chest);
-    world.add(fire);
+    add(chest);
+    add(fire);
+    
+    try {
+      scullImage = await images.load('scull.png');
+    } catch (_) {
+      scullImage = await images.load('background/forest.png'); // fallback
+    }
+    
+    mapSelector = MapSelector(
+      position: Vector2(size.x * 0.6, size.y - groundHeight - size.y * 0.15),
+      image: scullImage,
+      displayHeight: size.y * 0.15,
+    );
+    add(mapSelector);
 
-    // Spawn enemies near player
-    slime = SlimeEnemy(
-      position: Vector2(spawnX + 200, groundY - playerSize * 1.35 / 2),
-      player: player,
-    )..size = Vector2.all(playerSize * 1.35);
+    slime = SlimeEnemy(position: player.position.clone(), player: player)
+      ..size = Vector2.all(size.y * 0.27);
+    slime.position.y = player.position.y;
 
     boss = BossEnemy(
       game: this,
       player: player,
-      position: Vector2(spawnX + 400, groundY - playerSize / 2),
+      position: Vector2(size.x * 0.55, player.position.y),
     );
-    
-    world.add(slime);
-    world.add(boss);
+  }
+
+  void toggleDebug() {
+    if (settings.debugMode) {
+      if (!children.contains(debugOverlay)) add(debugOverlay);
+    } else {
+      debugOverlay.removeFromParent();
+    }
   }
 
   void openChest() {
@@ -1649,69 +1843,90 @@ class NgocRongGame extends FlameGame
     }
   }
 
-  @override
-  void update(double dt) {
-    super.update(dt);
-    final minPlayerX = player.size.x / 2;
-    final maxPlayerX = size.x - player.size.x / 2;
-    if (currentMap == 0 && player.position.x >= maxPlayerX - 1) {
+  void selectMap(int mapId) {
+    if (mapId == currentMap) return;
+    mapSelector.showUI.value = false;
+    removeAll(children.whereType<DoubleJumpDust>());
+    removeAll(children.whereType<BossMinion>());
+    
+    if (mapId == 0) {
+      currentMap = 0;
+      background1.removeFromParent();
+      add(background);
+      slime.removeFromParent();
+      boss.removeFromParent();
+      add(chest);
+      add(mapSelector);
+      add(fire);
+      player.position.x = size.x * 0.2 + player.size.x / 2;
+    } else if (mapId == 1) {
       currentMap = 1;
-      removeAll(children.whereType<DoubleJumpDust>());
       background.removeFromParent();
       add(background1);
       chest.removeFromParent();
       fire.removeFromParent();
+      boss.removeFromParent();
+      slime.health = slime.maxHealth;
+      slime.opacity = 1;
+      slime._dead = false;
       add(slime);
-      canOpenChest.value = false;
       player.position.x = size.x * 0.1 + player.size.x / 2;
-    } else if (currentMap == 1 && player.position.x >= maxPlayerX - 1) {
+    } else if (mapId == 2) {
       currentMap = 2;
-      removeAll(children.whereType<DoubleJumpDust>());
+      background.removeFromParent();
       background1.removeFromParent();
       add(background2);
+      chest.removeFromParent();
+      fire.removeFromParent();
       slime.removeFromParent();
+      boss.health = boss.maxHealth;
+      boss.resetState();
       add(boss);
       player.position.x = size.x * 0.1 + player.size.x / 2;
-    } else if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
+    }
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    debugElapsed += dt;
+    final minPlayerX = player.size.x / 2;
+    final maxPlayerX = size.x - player.size.x / 2;
+    // Right transitions disabled. Maps accessible via map selection.
+    if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
       currentMap = 1;
       removeAll(children.whereType<DoubleJumpDust>());
+      removeAll(children.whereType<BossMinion>());
       background2.removeFromParent();
       add(background1);
       boss.removeFromParent();
+      slime.health = slime.maxHealth;
+      slime.opacity = 1;
+      slime._dead = false;
       add(slime);
       player.position.x = size.x * 0.9 - player.size.x / 2;
     } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
       currentMap = 0;
       removeAll(children.whereType<DoubleJumpDust>());
+      removeAll(children.whereType<BossMinion>());
       background1.removeFromParent();
       add(background);
       slime.removeFromParent();
+      boss.removeFromParent();
       add(chest);
+      add(mapSelector);
       add(fire);
       player.position.x = size.x * 0.9 - player.size.x / 2;
     }
 
-    // Camera movement is handled by ParallaxComponent in the backdrop.
-    final camX = camera.viewfinder.position.x;
-    if (dt > 0) {
-      final parallaxSpeed = player._running ? 1.4 : 1.0;
-      nightForestParallax.parallax?.baseVelocity.setValues(
-        (camX - _lastCamX) / dt * parallaxSpeed,
-        0,
-      );
+    if (currentMap == 0) {
+      final dist = (player.position - chest.position).length;
+      canOpenChest.value = dist < size.y * 0.12;
+      mapSelector.checkProximity(player.position);
+    } else {
+      canOpenChest.value = false;
     }
-    _lastCamX = camX;
-    
-    // Chest interaction check
-    final dist = (player.position - chest.position).length;
-    canOpenChest.value = dist < size.y * 0.12;
-    
-    // Lock camera Y to ground
-    final groundHeight = size.y * 0.1;
-    final groundY = size.y - groundHeight;
-    camera.viewfinder.position.y = size.y / 2;
 
-    // Camera shake
     if (_shakeTimer > 0) {
       _shakeTimer -= dt;
       camera.viewfinder.position -= _shakeOffset;
@@ -1729,10 +1944,10 @@ class NgocRongGame extends FlameGame
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    if (isLoaded && nightForestParallax.isMounted) {
-      nightForestParallax
-        ..size = size.clone()
-        ..parallax?.resize(size);
+    if (isLoaded) {
+      background.size = size.clone();
+      background1.size = size.clone();
+      background2.size = size.clone();
       chest.size = Vector2.all(size.y * 0.15);
       fire.size = Vector2.all(size.y * 0.12);
        final playerSize = size.y * 0.6;
@@ -1747,6 +1962,8 @@ class NgocRongGame extends FlameGame
       player.size = Vector2(playerSize * aspect * scale, playerSize * scale);
       slime.size = Vector2.all(size.y * 0.27);
       player.position.y = size.y - groundHeight - playerSize / 2;
+      final maxX = size.x - playerSize / 2;
+      if (player.position.x > maxX) player.position.x = maxX;
     }
   }
 }

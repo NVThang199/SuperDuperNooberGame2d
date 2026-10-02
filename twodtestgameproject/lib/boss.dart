@@ -44,6 +44,7 @@ class BossEnemy extends PositionComponent {
   int _skill1Count = 0; // track skill1 uses since last summon
   bool _lowHPTriggered = false; // track first 80% HP threshold summon
   double _deathTimer = 0; // respawn timer after death animation
+  String get currentState => _currentState;
 
   BossEnemy({
     required this.game,
@@ -63,7 +64,7 @@ class BossEnemy extends PositionComponent {
 
     await _loadAnimation('idle');
     sprite.size = Vector2.all(frameSize * sizeMultiplier);
-    // position.y already correct from spawn, no offset needed
+    position.y -= frameSize * 0.3;
     _initialPosition.y = position.y; // save final Y position after adjustment
   }
 
@@ -156,18 +157,30 @@ class BossEnemy extends PositionComponent {
   void update(double dt) {
     super.update(dt);
 
-   if (dead) {
-      _deathTimer += dt;
-      if (_deathTimer >= 5.0) {
-        // Respawn
-        dead = false;
-        health = maxHealth;
-        _deathTimer = 0;
+   if (dead || game.currentMap != 2) {
+      if (game.currentMap != 2 && _aggro) {
         _aggro = false;
+        health = maxHealth;
+        position = _initialPosition.clone();
+        _loadAnimation('idle');
         _lowHPTriggered = false;
         _attackCount = 0;
         _skill1Count = 0;
-        _loadAnimation('idle');
+        _deathTimer = 0;
+      }
+      if (dead) {
+        _deathTimer += dt;
+        if (_deathTimer >= 5.0) {
+          // Respawn
+          dead = false;
+          health = maxHealth;
+          _deathTimer = 0;
+          _aggro = false;
+          _lowHPTriggered = false;
+          _attackCount = 0;
+          _skill1Count = 0;
+          _loadAnimation('idle');
+        }
       }
       return;
     }
@@ -218,9 +231,6 @@ class BossEnemy extends PositionComponent {
     if (_aggro && canMove) {
       position.y += (player.position.y - position.y) * 0.5 * dt;
     }
-    // Clamp feet to the bottom ground line.
-    final groundY = NgocRongGame.groundLine(game.size.y) - size.y / 2;
-    position.y = groundY;
 
     if (_aggro && (_currentState == 'idle' || _currentState == 'idle2')) {
       final distanceToPlayer = (player.position - position).length;
@@ -319,7 +329,7 @@ class BossEnemy extends PositionComponent {
         player: player,
         position: Vector2(position.x + offsetX, player.position.y),
       );
-      game.world.add(minion);
+      game.add(minion);
     }
     if (kDebugMode) print('Boss summoned 3 minions');
   }
@@ -336,7 +346,6 @@ class BossEnemy extends PositionComponent {
   }
 
   void resetState() {
-    health = maxHealth;
     _aggro = false;
     _lowHPTriggered = false;
     _attackCount = 0;
@@ -346,7 +355,23 @@ class BossEnemy extends PositionComponent {
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    if (dead) return; // Hide HP bar when dead
+    if (dead) return;
+
+    if (game.settings.debugMode) {
+      final center = Offset(size.x / 2, size.y / 2);
+      final attackPaint = Paint()
+        ..color = const Color(0xFFFF0000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawCircle(center, 120, attackPaint);
+      if (_currentState == 'attacking' || _currentState == 'skill1') {
+        final activePaint = Paint()
+          ..color = const Color(0xFFFF0000).withAlpha(70)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(center, 120, activePaint);
+      }
+    }
+
     const barW = 100.0, barH = 8.0;
     final barX = size.x / 2 - barW / 2;
     final barY = -size.y / 2 + 125.0;
@@ -418,6 +443,11 @@ class BossMinion extends PositionComponent {
     super.update(dt);
 
     if (dead) return;
+    // Only active on map 2; preserve minion while hidden.
+    if (game.currentMap != 2) {
+      sprite.scale = Vector2.zero();
+      return;
+    }
     sprite.scale = Vector2.all(1);
     // Remove if player dead
     if (player.health <= 0) {
@@ -449,9 +479,6 @@ class BossMinion extends PositionComponent {
     if (player.isOnGround) {
       position.y = player.position.y;
     }
-    // Clamp feet to the bottom ground line.
-    final groundY = NgocRongGame.groundLine(game.size.y) - size.y / 2;
-    position.y = groundY;
 
     if ((player.position - position).length < frameSize * 1.2) {
       player.takeDamage(DamageConfig.bossMinionDamage);
