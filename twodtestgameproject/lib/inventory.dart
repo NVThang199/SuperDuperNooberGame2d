@@ -270,9 +270,9 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   static const _eqCols = 3;
   static const _eqRows = 4;
   static const _eqLeft = 10.0;
-  static const _eqTop = 16.0;
+  static const _eqTop = 17.0;
   static const _gridLeft = 74.0;
-  static const _gridTop = 16.0;
+  static const _gridTop = 17.0;
   static const _gridWidth = _cols * _slotSize + (_cols - 1) * _slotGap;
   static const _gridHeight = _rows * _slotSize + (_rows - 1) * _slotGap;
   static const _eqWidth = _eqCols * _slotSize + (_eqCols - 1) * _slotGap;
