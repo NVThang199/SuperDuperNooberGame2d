@@ -1849,39 +1849,40 @@ class NgocRongGame extends FlameGame
     removeAll(children.whereType<DoubleJumpDust>());
     removeAll(children.whereType<BossMinion>());
     
+    // Remove all backgrounds
+    background.removeFromParent();
+    background1.removeFromParent();
+    background2.removeFromParent();
+    
+    // Remove all objects
+    chest.removeFromParent();
+    fire.removeFromParent();
+    slime.removeFromParent();
+    boss.removeFromParent();
+    
     if (mapId == 0) {
       currentMap = 0;
-      background1.removeFromParent();
       add(background);
-      slime.removeFromParent();
-      boss.removeFromParent();
       add(chest);
-      add(mapSelector);
       add(fire);
+      add(mapSelector);
       player.position.x = size.x * 0.2 + player.size.x / 2;
     } else if (mapId == 1) {
       currentMap = 1;
-      background.removeFromParent();
       add(background1);
-      chest.removeFromParent();
-      fire.removeFromParent();
-      boss.removeFromParent();
       slime.health = slime.maxHealth;
       slime.opacity = 1;
       slime._dead = false;
       add(slime);
+      add(mapSelector);
       player.position.x = size.x * 0.1 + player.size.x / 2;
     } else if (mapId == 2) {
       currentMap = 2;
-      background.removeFromParent();
-      background1.removeFromParent();
       add(background2);
-      chest.removeFromParent();
-      fire.removeFromParent();
-      slime.removeFromParent();
       boss.health = boss.maxHealth;
       boss.resetState();
       add(boss);
+      add(mapSelector);
       player.position.x = size.x * 0.1 + player.size.x / 2;
     }
   }
@@ -1892,38 +1893,17 @@ class NgocRongGame extends FlameGame
     debugElapsed += dt;
     final minPlayerX = player.size.x / 2;
     final maxPlayerX = size.x - player.size.x / 2;
-    // Right transitions disabled. Maps accessible via map selection.
-    if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
-      currentMap = 1;
-      removeAll(children.whereType<DoubleJumpDust>());
-      removeAll(children.whereType<BossMinion>());
-      background2.removeFromParent();
-      add(background1);
-      boss.removeFromParent();
-      slime.health = slime.maxHealth;
-      slime.opacity = 1;
-      slime._dead = false;
-      add(slime);
-      player.position.x = size.x * 0.9 - player.size.x / 2;
-    } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
-      currentMap = 0;
-      removeAll(children.whereType<DoubleJumpDust>());
-      removeAll(children.whereType<BossMinion>());
-      background1.removeFromParent();
-      add(background);
-      slime.removeFromParent();
-      boss.removeFromParent();
-      add(chest);
-      add(mapSelector);
-      add(fire);
-      player.position.x = size.x * 0.9 - player.size.x / 2;
-    }
-
+     // Right transitions disabled. All maps via UI selection.
+    // Left transitions also disabled.
     if (currentMap == 0) {
       final dist = (player.position - chest.position).length;
       canOpenChest.value = dist < size.y * 0.12;
       mapSelector.checkProximity(player.position);
-    } else {
+    } else if (currentMap == 1) {
+      mapSelector.checkProximity(player.position);
+      canOpenChest.value = false;
+    } else if (currentMap == 2) {
+      mapSelector.checkProximity(player.position);
       canOpenChest.value = false;
     }
 
