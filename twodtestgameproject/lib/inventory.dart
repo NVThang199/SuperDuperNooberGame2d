@@ -1,6 +1,30 @@
 import 'package:flutter/material.dart';
 
+class InventoryLayout {
+  static const double canvasW = 147.0;
+  static const double canvasH = 84.0;
+
+  static const double slotSize = 14.0;
+  static const double slotGap = 2.0;
+
+  static const double eqLeft = 3.0;
+  static const double eqTop = 16.0;
+
+  static const double invLeft = 74.0;
+  static const double invTop = 16.0;
+
+
+  static const double btnPrevX = 68.0;
+  static const double btnPrevY = 43.0;
+  static const double btnNextX = 139.0;
+  static const double btnNextY = 43.0;
+  static const double btnCloseX = 134.0; // Approximate based on frame
+  static const double btnCloseY = 5.0;
+  static const double btnSize = 12.0;
+}
+
 class InventoryItem {
+
   final String id;
   final String name;
   final String imagePath;
@@ -241,17 +265,26 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   static const _frameH = 84.0;
   static const _cols = 4;
   static const _rows = 4;
-  static const _gridLeft = 74.0;
-  static const _gridTop = 19.0;
-  static const _gridRight = _gridLeft + 3.9 * 13;
-  static const _gridBottom = _gridTop + 4 * 13;
-
-  static const _eqLeft = 17.0;
-  static const _eqRight = _eqLeft + 2.9 * 12.5;
-  static const _eqTop = 19.0;
-  static const _eqBottom = _eqTop + 4.05 * 12.5;
+  static const _slotSize = 14.0;
+  static const _slotGap = 2.0;
   static const _eqCols = 3;
   static const _eqRows = 4;
+  static const _eqLeft = 10.0;
+  static const _eqTop = 16.0;
+  static const _gridLeft = 74.0;
+  static const _gridTop = 16.0;
+  static const _gridWidth = _cols * _slotSize + (_cols - 1) * _slotGap;
+  static const _gridHeight = _rows * _slotSize + (_rows - 1) * _slotGap;
+  static const _eqWidth = _eqCols * _slotSize + (_eqCols - 1) * _slotGap;
+  static const _eqHeight = _eqRows * _slotSize + (_eqRows - 1) * _slotGap;
+  static const _gridLeftRatio = _gridLeft / _frameW;
+  static const _gridTopRatio = _gridTop / _frameH;
+  static const _gridWidthRatio = _gridWidth / _frameW;
+  static const _gridHeightRatio = _gridHeight / _frameH;
+  static const _eqLeftRatio = _eqLeft / _frameW;
+  static const _eqTopRatio = _eqTop / _frameH;
+  static const _eqWidthRatio = _eqWidth / _frameW;
+  static const _eqHeightRatio = _eqHeight / _frameH;
 
   static const _frames = [
     'assets/images/ui/inventory/Inventory1.png',
@@ -306,68 +339,60 @@ class _InventoryWidgetState extends State<InventoryWidget> {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: OverflowBox(
-                      maxWidth: double.infinity,
-                      maxHeight: double.infinity,
-                      child: Transform.scale(
-                        scale: 3.5,
-                        child: Image.asset(
-                          _frames[0],
-                          filterQuality: FilterQuality.none,
-                          fit: BoxFit.none,
+                    child: Image.asset(
+                      _frames[0],
+                      width: w,
+                      height: h,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.none,
+                    ),
+                  ),
+                  _equipmentSlots(inv, scale),
+                  _highlight(_filteredInventory, scale),
+                  _label('${_filteredInventory.page + 1}/${_filteredInventory.maxPages}', scale),
+                  Positioned(
+                    left: 66 * scale,
+                    top: 43 * scale,
+                    width: 6 * scale,
+                    height: 6 * scale,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _filteredInventory.page > 0
+                        ? () => setState(() => _filteredInventory.prevPage())
+                        : null,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: widget.debugMode ? Border.all(color: Colors.red) : null,
+                        ),
+                        child: Icon(
+                          Icons.arrow_left,
+                          color: _filteredInventory.page > 0 ? Colors.white : Colors.grey,
+                          size: 6 * scale,
                         ),
                       ),
                     ),
                   ),
                   Positioned(
-                    left: w * 0.4 - 4,
-                    top: 40,
-                    width: w * 0.6,
-                    height: h,
-                    child: Transform.scale(
-                      scale: 0.72,
-                      child: Image.asset(
-                        _frames[1],
-                        fit: BoxFit.none,
-                        filterQuality: FilterQuality.none,
+                    left: 136 * scale,
+                    top: 43 * scale,
+                    width: 6 * scale,
+                    height: 6 * scale,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _filteredInventory.page < _filteredInventory.maxPages - 1
+                        ? () => setState(() => _filteredInventory.nextPage())
+                        : null,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: widget.debugMode ? Border.all(color: Colors.red) : null,
+                        ),
+                      child: Icon(
+                        Icons.arrow_right,
+                        color: _filteredInventory.page < _filteredInventory.maxPages - 1 ? Colors.white : Colors.grey,
+                        size: 6 * scale,
+                      ),
                       ),
                     ),
-                  ),
-                  _equipmentSlots(inv, scale),
-                  _highlight(_filteredInventory, scale),
-                  _label('${_filteredInventory.page + 1}/${_filteredInventory.maxPages}', scale                  ),
-                  Positioned(
-                  left: 68 * scale,
-                  top: 43 * scale,
-                  child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _filteredInventory.page > 0
-                  ? () => setState(() => _filteredInventory.prevPage())
-                  : null,
-                  child: Container(
-                    width: 4 * scale,
-                    height: 6 * scale,
-                    decoration: BoxDecoration(
-                      border: widget.debugMode ? Border.all(color: Colors.red) : null,
-                    ),
-                  ),
-                  ),
-                  ),
-                  Positioned(
-                  left: 130 * scale,
-                  top: 43 * scale,
-                    child: GestureDetector(
-                    onTap: _filteredInventory.page < _filteredInventory.maxPages - 1
-                      ? () => setState(() => _filteredInventory.nextPage())
-                      : null,
-                  child: Container(
-                    width: 4 * scale,
-                    height: 6 * scale,
-                    decoration: BoxDecoration(
-                      border: widget.debugMode ? Border.all(color: Colors.red) : null,
-                    ),
-                  ),
-                  ),
                   ),
                   Positioned(
                     right: w * 0.05,
@@ -395,8 +420,8 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   }
 
   Widget _equipmentSlots(InventoryState inv, double scale) {
-    final slotW = ((_eqRight - _eqLeft) / _eqCols) * scale;
-    final slotH = ((_eqBottom - _eqTop) / _eqRows) * scale;
+    final slotW = _slotSize * scale;
+    final slotH = _slotSize * scale;
 
     return Stack(
       children: [
@@ -409,8 +434,8 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   Widget _eqSlot(InventoryState inv, int idx, double scale, double slotW, double slotH) {
     final col = idx % _eqCols;
     final row = idx ~/ _eqCols;
-    final x = _eqLeft * scale + col * (slotW + 2.0 * scale);
-    final y = _eqTop * scale + row * (slotH + 2.0 * scale);
+    final x = scale * _frameW * _eqLeftRatio + col * (slotW + scale * _slotGap);
+    final y = scale * _frameH * _eqTopRatio + row * (slotH + scale * _slotGap);
     final slotId = _eqSlotOrder[idx];
     final itemId = inv.equippedSlots[slotId];
     final item = itemId == null ? null : inv.items.firstWhere(
@@ -436,6 +461,7 @@ class _InventoryWidgetState extends State<InventoryWidget> {
             ? Image.asset(
                 item.imagePath,
                 fit: BoxFit.cover,
+                filterQuality: FilterQuality.none,
                 errorBuilder: (_, __, ___) => Container(color: Colors.grey),
               )
             : SizedBox.shrink(),
@@ -447,8 +473,8 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   Widget _highlight(InventoryState inv, double scale) {
     if (inv.pageItems.isEmpty) return const SizedBox.shrink();
 
-    final slotW = ((_gridRight - _gridLeft) / _cols) * scale;
-    final slotH = ((_gridBottom - _gridTop) / _rows) * scale;
+    final slotW = _slotSize * scale;
+    final slotH = _slotSize * scale;
 
     return Stack(
       children: [
@@ -468,8 +494,8 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   ) {
     final col = idx % _cols;
     final row = idx ~/ _cols;
-    final x = _gridLeft * scale + col * (slotW + 1.5 * scale);
-    final y = _gridTop * scale + row * (slotH + 1.5 * scale);
+    final x = scale * _frameW * _gridLeftRatio + col * (slotW + scale * _slotGap);
+    final y = scale * _frameH * _gridTopRatio + row * (slotH + scale * _slotGap);
     final isEquipped = inv.equippedSlots.containsValue(item.id);
 
     return Positioned(
@@ -487,12 +513,13 @@ class _InventoryWidgetState extends State<InventoryWidget> {
             Image.asset(
               item.imagePath,
               fit: BoxFit.cover,
+              filterQuality: FilterQuality.none,
               errorBuilder: (_, __, ___) => Container(color: Colors.grey),
             ),
           if (isEquipped)
             Positioned(
-              top: 2,
-              right: 2,
+              top: 2 * scale,
+              right: 2 * scale,
               child: Container(
                 width: slotW * 0.25,
                 height: slotH * 0.25,
@@ -529,23 +556,17 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   }
 
   void _onTap(Offset local, double scale, InventoryState inv) {
-    final gridLeft = _gridLeft * scale;
-    final gridTop = _gridTop * scale;
-    final gridW = (_gridRight - _gridLeft) * scale;
-    final gridH = (_gridBottom - _gridTop) * scale;
+    final gridLeft = scale * _frameW * _gridLeftRatio;
+    final gridTop = scale * _frameH * _gridTopRatio;
+    final gridW = scale * _frameW * _gridWidthRatio;
+    final gridH = scale * _frameH * _gridHeightRatio;
 
     if (local.dx >= gridLeft &&
         local.dx < gridLeft + gridW &&
         local.dy >= gridTop &&
         local.dy < gridTop + gridH) {
-      final col = ((local.dx - gridLeft) / (gridW / _cols)).floor().clamp(
-        0,
-        _cols - 1,
-      );
-      final row = ((local.dy - gridTop) / (gridH / _rows)).floor().clamp(
-        0,
-        _rows - 1,
-      );
+      final col = ((local.dx - gridLeft) / (gridW / _cols)).floor().clamp(0, _cols - 1);
+      final row = ((local.dy - gridTop) / (gridH / _rows)).floor().clamp(0, _rows - 1);
       final slotIdx = row * _cols + col;
 
       if (slotIdx < inv.pageItems.length) {
