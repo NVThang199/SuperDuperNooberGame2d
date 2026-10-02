@@ -37,6 +37,54 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
+Widget buildBar(
+  double value,
+  double max,
+  Color color,
+  String assetPath, {
+  bool showText = false,
+}) {
+  final pct = value / max;
+  return SizedBox(
+    width: 200,
+    height: 40,
+    child: Stack(
+      children: [
+        Positioned(
+          left: 9,
+          top: 12,
+          width: 174 * pct.clamp(0.0, 1.0),
+          height: 20,
+          child: Container(color: color),
+        ),
+        Positioned.fill(
+          child: Image.asset(
+            assetPath,
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.none,
+          ),
+        ),
+        if (showText)
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Center(
+                child: Text(
+                  '${value.toInt()}/${max.toInt()}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 class _GameScreenState extends State<GameScreen> {
   late final game = NgocRongGame(character: widget.character);
   OverlayLayout _layout = OverlayLayout.defaults();
@@ -66,94 +114,143 @@ class _GameScreenState extends State<GameScreen> {
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
           systemNavigationBarColor: Colors.black,
-         ),
-         child: Stack(
-           children: [
-             GameWidget(game: game),
-                    if (_showPauseMenu)
-                      Center(
-                        child: Container(
-                          width: 266,
-                          height: 340,
-                          decoration: const BoxDecoration(
-                            image: DecorationImage(
-                              image: AssetImage('assets/images/ui/pauseframe.png'),
-                              fit: BoxFit.fill,
-                              filterQuality: FilterQuality.none,
-                            ),
+        ),
+        child: Stack(
+          children: [
+            GameWidget(game: game),
+            ValueListenableBuilder<bool>(
+              valueListenable: game.mapSelectionVisible,
+              builder: (context, visible, _) {
+                if (!visible) return const SizedBox.shrink();
+                return Center(
+                  child: Material(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('CHỌN MAP', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(onPressed: () => game.selectMap(1), child: const Text('MAP 1')),
+                              const SizedBox(width: 12),
+                              ElevatedButton(onPressed: () => game.selectMap(2), child: const Text('MAP 2')),
+                            ],
                           ),
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 60),
-                              child: SizedBox(
-                                width: 50,
-                                height: 150,
-                                child: Stack(
-                                  children: [
-                                    Positioned.fill(
-                                      child: Transform.scale(
-                                        scale: 3.5,
-                                        child: Image.asset(
-                                          'assets/images/ui/menufunction button.png',
-                                          filterQuality: FilterQuality.none,
-                                        ),
-                                      ),
-                                    ),
-                                       Column(
-                                       children: [
-                                         Expanded(
-                                           child: GestureDetector(
-                                             behavior: HitTestBehavior.opaque,
-                                             onTap: () => setState(() => _showPauseMenu = false),
-                                           ),
-                                         ),
-                                         Expanded(
-                                           child: GestureDetector(
-                                             behavior: HitTestBehavior.opaque,
-                                             onTap: () {
-                                               setState(() => _showPauseMenu = false);
-                                               Navigator.of(context).pushReplacement(
-                                                 MaterialPageRoute(builder: (_) => const CharacterSelection()),
-                                               );
-                                             },
-                                           ),
-                                         ),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            behavior: HitTestBehavior.opaque,
-                                            onTap: () {
-                                              setState(() => _showPauseMenu = false);
-                                              showDialog(
-                                                context: context,
-                                                builder: (_) => BackdropFilter(
-                                                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                                                  child: Dialog(
-                                                    backgroundColor: Colors.black.withValues(alpha: 0.6),
-                                                    child: SettingsPage(
-                                                      settings: game.settings,
-                                                      onChanged: () async {
-                                                        await _loadLayout();
-                                                        if (context.mounted) setState(() {});
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                          TextButton(onPressed: () => game.mapSelector.showUI.value = false, child: const Text('ĐÓNG')),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            if (_showPauseMenu)
+              Center(
+                child: Container(
+                  width: 266,
+                  height: 340,
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/ui/pauseframe.png'),
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.none,
+                    ),
+                  ),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 60),
+                      child: SizedBox(
+                        width: 50,
+                        height: 150,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: Transform.scale(
+                                scale: 3.5,
+                                child: Image.asset(
+                                  'assets/images/ui/menufunction button.png',
+                                  filterQuality: FilterQuality.none,
                                 ),
                               ),
                             ),
-                          ),
+                            Column(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => setState(() {
+                                      _showPauseMenu = false;
+                                      game.isPaused.value = false;
+                                    }),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {
+                                      setState(() {
+                                        _showPauseMenu = false;
+                                        game.isPaused.value = false;
+                                      });
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const CharacterSelection(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {
+                                      setState(() {
+                                        _showPauseMenu = false;
+                                        game.isPaused.value = false;
+                                      });
+                                      showDialog(
+                                        context: context,
+                                        builder: (_) => BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 5,
+                                            sigmaY: 5,
+                                          ),
+                                          child: Dialog(
+                                            backgroundColor: Colors.black
+                                                .withValues(alpha: 0.6),
+                                            child: SettingsPage(
+                                              settings: game.settings,
+                                              onChanged: () async {
+                                                await _loadLayout();
+                                                game.toggleDebug();
+                                                if (context.mounted)
+                                                  setState(() {});
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-             Positioned(
-                top: 16,
-                left: 16,
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 16,
+              left: 16,
               child: FutureBuilder<void>(
                 future: game.loaded,
                 builder: (ctx, snap) {
@@ -162,112 +259,51 @@ class _GameScreenState extends State<GameScreen> {
                   }
                   return ValueListenableBuilder<double>(
                     valueListenable: game.player.healthNotifier,
-                    builder: (ctx2, health, _) {
-                      final healthPct = health / game.player.maxHealth;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                           SizedBox(
-                              width: 200,
-                              height: 40,
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                     left: 9,
-                                     top: 12,
-                                    width: 174 * healthPct.clamp(0.0, 1.0),
-                                    height: 20,
-                                    child: Container(color: Colors.red),
-                                  ),
-                                  Positioned.fill(
-                                    child: Image.asset(
-                                      'assets/images/ui/HPbar.png',
-                                      fit: BoxFit.fill,
-                                      filterQuality: FilterQuality.none,
-                                    ),
-                                  ),
-                                  Positioned.fill(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Center(
-                                        child: Text(
-                                          '${health.toInt()}/${game.player.maxHealth.toInt()}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                    builder: (ctx2, health, _) =>
+                        ValueListenableBuilder<double>(
+                          valueListenable: game.player.maxHealthNotifier,
+                          builder: (ctx3, maxHealth, _) => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              buildBar(
+                                health,
+                                maxHealth,
+                                Colors.red,
+                                'assets/images/ui/HPbar.png',
+                                showText: true,
                               ),
-                            ),
-                           const SizedBox(height: 0),
-                          ValueListenableBuilder<double>(
-                            valueListenable: game.player.staminaNotifier,
-                            builder: (ctx3, stamina, _) {
-                              final pct = stamina / game.player.maxStamina;
-                              return Transform.translate(
-                                offset: const Offset(0, -8),
-                                child: SizedBox(
-                                  width: 200,
-                                  height: 40,
-                                  child: Stack(
-                                  children: [
-                                    Positioned(
-                                     left: 9,
-                                     top: 12,
-                                      width: 174 * pct.clamp(0.0, 1.0),
-                                      height: 20,
-                                      child: Container(color: Colors.blue.shade700),
-                                    ),
-                                    Positioned.fill(
-                                      child: Image.asset(
+                              ValueListenableBuilder<double>(
+                                valueListenable: game.player.staminaNotifier,
+                                builder: (ctx4, stamina, _) =>
+                                    Transform.translate(
+                                      offset: const Offset(0, -8),
+                                      child: buildBar(
+                                        stamina,
+                                        game.player.maxStamina,
+                                        Colors.blue.shade700,
                                         'assets/images/ui/HPbar.png',
-                                        fit: BoxFit.fill,
-                                        filterQuality: FilterQuality.none,
+                                        showText: true,
                                       ),
                                     ),
-                                    Positioned.fill(
-                                      child: Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Center(
-                                        child: Text(
-                                          '${stamina.toInt()}/${game.player.maxStamina.toInt()}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    ),
-                                  ],
-                                  ),
-                                ),
-                              );
-                            },
+                              ),
+                            ],
                           ),
-                         ],
-                       );
-                     },
-                   );
-                 },
-               ),
-             ),
-              Positioned(
-                top: 12,
-                left: 204,
-                child: SizedBox(
-                  width: 96,
-                  height: 96,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => game.player.inventoryOpen.value = true,
-                    child: Image.asset(
+                        ),
+                  );
+                },
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 204,
+              child: SizedBox(
+                width: 96,
+                height: 96,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => game.player.inventoryOpen.value = true,
+                  child: _debugBorder(
+                    Image.asset(
                       'assets/images/ui/inventorybagicon.png',
                       width: 96,
                       height: 96,
@@ -275,16 +311,21 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ),
               ),
-              Positioned(
-                top: 12,
-                right: 32,
-                child: SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => setState(() => _showPauseMenu = !_showPauseMenu),
-                    child: Transform.scale(
+            ),
+            Positioned(
+              top: 12,
+              right: 32,
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() {
+                    _showPauseMenu = !_showPauseMenu;
+                    game.isPaused.value = _showPauseMenu;
+                  }),
+                  child: _debugBorder(
+                    Transform.scale(
                       scale: 4.0,
                       child: Image.asset(
                         'assets/images/ui/settingbutton.png',
@@ -294,74 +335,72 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: FutureBuilder<void>(
-                  future: game.loaded,
-                  builder: (ctx, snap) {
-                    if (snap.connectionState != ConnectionState.done) {
-                      return const SizedBox.shrink();
-                    }
-                    return StatefulBuilder(
-                      builder: (ctx2, setState) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          Future.delayed(const Duration(milliseconds: 100), () {
-                            if (mounted) setState(() {});
-                          });
-                        });
-                        if (game.currentMap != 1) {
-                          return const SizedBox.shrink();
-                        }
-                        final dist =
-                            (game.player.position - game.slime.position).length;
-                        final attackRange =
-                            (game.slime.size.x + game.player.size.x) * 0.6;
-                        if (dist > attackRange) {
-                          return const SizedBox.shrink();
-                        }
-                        final cd = game.slime.attackCooldown;
-                        final pct = (cd / 7.0).clamp(0.0, 1.0).toDouble();
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const Text(
-                              'Slime CD',
-                              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+            Positioned(
+              bottom: 12,
+              right: 12,
+              child: FutureBuilder<void>(
+                future: game.loaded,
+                builder: (ctx, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const SizedBox.shrink();
+                  }
+                  return FutureBuilder<void>(
+                    future: game.loaded,
+                    builder: (ctx, snap) {
+                      if (snap.connectionState != ConnectionState.done ||
+                          game.currentMap != 1) {
+                        return const SizedBox.shrink();
+                      }
+                      final dist =
+                          (game.player.position - game.slime.position).length;
+                      final attackRange =
+                          (game.slime.size.x + game.player.size.x) * 0.6;
+                      if (dist > attackRange) {
+                        return const SizedBox.shrink();
+                      }
+                      final cd = game.slime.attackCooldown;
+                      final pct = (cd / 7.0).clamp(0.0, 1.0).toDouble();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'Slime CD',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                          Container(
+                            width: 120,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.white, width: 1),
+                              borderRadius: BorderRadius.circular(2),
                             ),
-                            Container(
-                              width: 120,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.white, width: 1),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    width: 120 * pct,
-                                    height: 16,
-                                    color: pct > 0.5 ? Colors.green : Colors.red,
-                                  ),
-                                  Center(
-                                    child: Text(
-                                      '${cd.toStringAsFixed(1)}s',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                      ),
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 120 * pct,
+                                  height: 16,
+                                  color: pct > 0.5 ? Colors.green : Colors.red,
+                                ),
+                                Center(
+                                  child: Text(
+                                    '${cd.toStringAsFixed(1)}s',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
               ),
+            ),
             ValueListenableBuilder<bool>(
               valueListenable: game.canOpenChest,
               builder: (ctx, canOpen, _) => canOpen
@@ -369,19 +408,21 @@ class _GameScreenState extends State<GameScreen> {
                       valueListenable: game.chestOpenState,
                       builder: (ctx2, isOpen, _) => Align(
                         alignment: const Alignment(0, 0.35),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                        child: _debugBorder(
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              backgroundColor: Colors.amber,
+                              foregroundColor: Colors.black,
                             ),
-                            backgroundColor: Colors.amber,
-                            foregroundColor: Colors.black,
-                          ),
-                          onPressed: () => game.openChest(),
-                          child: Text(
-                            isOpen ? 'Đóng rương' : 'Mở rương',
-                            style: const TextStyle(fontSize: 12),
+                            onPressed: () => game.openChest(),
+                            child: Text(
+                              isOpen ? 'Đóng rương' : 'Mở rương',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
                         ),
                       ),
@@ -389,82 +430,66 @@ class _GameScreenState extends State<GameScreen> {
                   : const SizedBox.shrink(),
             ),
 
-
-            if (game.settings.showMobileControls) ...[
-              _btn(
-                size,
-                OverlayButtonId.moveLeft,
-                _RoundControl(
-                  icon: Icons.keyboard_arrow_left,
-                  label: 'TRÁI',
-                  onPressed: () => _move(-1),
-                  onReleased: () => _move(0),
-                ),
-              ),
-              _btn(
-                size,
-                OverlayButtonId.moveRight,
-                _RoundControl(
-                  icon: Icons.keyboard_arrow_right,
-                  label: 'PHẢI',
-                  onPressed: () => _move(1),
-                  onReleased: () => _move(0),
-                ),
-              ),
-              _btn(
-                size,
-                OverlayButtonId.shield,
-                _RoundControl(
-                  icon: Icons.shield,
-                  label: 'KHIÊN',
-                  color: Colors.grey,
-                  onPressed: () => game.player.setShielding(true),
-                  onReleased: () => game.player.setShielding(false),
-                ),
-              ),
-              _btn(
-                size,
-                OverlayButtonId.run,
-                _RoundControl(
-                  icon: Icons.directions_run,
-                  label: 'CHẠY',
-                  color: Colors.green,
-                  onPressed: () => game.player.setRunning(true),
-                  onReleased: () => game.player.setRunning(false),
-                ),
-              ),
-              _btn(
-                size,
-                OverlayButtonId.throwRock,
-                _RoundControl(
-                  icon: Icons.landscape,
-                  label: 'NÉM ĐÁ',
-                  color: Colors.brown,
-                  onPressed: () => game.player.throwRock(),
-                ),
-              ),
-              _btn(
-                size,
-                OverlayButtonId.attack,
-                _RoundControl(
-                  icon: Icons.local_fire_department,
-                  label: 'TẤN CÔNG',
-                  color: Colors.red,
-                  onPressed: () => game.player.setAttackHeld(true),
-                  onReleased: () => game.player.setAttackHeld(false),
-                ),
-              ),
-              _btn(
-                size,
-                OverlayButtonId.jump,
-                _RoundControl(
-                  icon: Icons.keyboard_arrow_up,
-                  label: 'NHẢY',
-                  color: Colors.orange,
-                  onPressed: () => game.player.jump(),
-                ),
-              ),
-            ],
+            FutureBuilder<void>(
+              future: game.loaded,
+              builder: (ctx, snap) {
+                if (snap.connectionState != ConnectionState.done ||
+                    game.isPaused.value ||
+                    game.player.isDead ||
+                    !game.settings.showMobileControls) {
+                  return const SizedBox.shrink();
+                }
+                return ValueListenableBuilder<int>(
+                  valueListenable: game.player.weaponTypeVersion,
+                  builder: (ctx, version, _) => Stack(
+                    children: [
+                      _joystick(size, game),
+                      _btn(
+                        size,
+                        OverlayButtonId.run,
+                        _RoundControl(
+                          icon: Icons.directions_run,
+                          label: 'CHẠY',
+                          color: Colors.green,
+                          onPressed: () => game.player.isDead
+                              ? null
+                              : game.player.setRunning(true),
+                          onReleased: () => game.player.isDead
+                              ? null
+                              : game.player.setRunning(false),
+                        ),
+                      ),
+                      _btn(
+                        size,
+                        OverlayButtonId.attack,
+                        _RoundControl(
+                          icon: Icons.local_fire_department,
+                          label: 'TẤN CÔNG',
+                          color: Colors.red,
+                          onPressed: () => game.player.isDead
+                              ? null
+                              : game.player.setAttackHeld(true),
+                          onReleased: () => game.player.isDead
+                              ? null
+                              : game.player.setAttackHeld(false),
+                        ),
+                      ),
+                      _btn(
+                        size,
+                        OverlayButtonId.roll,
+                        _RoundControl(
+                          icon: Icons.cached,
+                          label: 'LĂN',
+                          color: Colors.purple,
+                          onPressed: () =>
+                              game.player.isDead ? null : game.player.roll(),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
             FutureBuilder<void>(
               future: game.loaded,
               builder: (ctx, snap) =>
@@ -472,11 +497,105 @@ class _GameScreenState extends State<GameScreen> {
                   ? const SizedBox.shrink()
                   : ValueListenableBuilder<bool>(
                       valueListenable: game.player.inventoryOpen,
-                      builder: (ctx2, open, _) => open
+                      builder: (ctx, open, _) => open
                           ? InventoryWidget(
-                              inventory: InventoryState(),
+                              inventory: game.inventory,
+                              onUseItem: (item) {
+                                final stats = game
+                                    .inventory
+                                    .equippedSlots
+                                    .values
+                                    .where((id) => id != null)
+                                    .map(
+                                      (id) => game.inventory.items.firstWhere(
+                                        (i) => i.id == id,
+                                      ),
+                                    )
+                                    .fold(
+                                      {
+                                        'hp': 0,
+                                        'stamina': 0,
+                                        'dmg': 0,
+                                        'def': 0,
+                                      },
+                                      (prev, item) => {
+                                        'hp': prev['hp']! + item.hpBonus,
+                                        'stamina':
+                                            prev['stamina']! +
+                                            item.staminaBonus,
+                                        'dmg': prev['dmg']! + item.dmgBonus,
+                                        'def': prev['def']! + item.defenseBonus,
+                                      },
+                                    );
+                                game.player.maxHealth += stats['hp']!;
+                                game.player.maxStamina += stats['stamina']!;
+                                game.player.dmgBonus = stats['dmg']!;
+                                game.player.defenseBonus += stats['def']!;
+                                game.player.maxHealthNotifier.value =
+                                    game.player.maxHealth;
+                                game.player.staminaNotifier.value =
+                                    game.player.stamina;
+                                game.player.refreshWeaponAnimation();
+                                game.player.weaponTypeVersion.value++;
+                              },
+                              onUnequipItem: (item) {
+                                game.inventory.unequip(item);
+                                final stats = game
+                                    .inventory
+                                    .equippedSlots
+                                    .values
+                                    .where((id) => id != null)
+                                    .map(
+                                      (id) => game.inventory.items.firstWhere(
+                                        (i) => i.id == id,
+                                      ),
+                                    )
+                                    .fold(
+                                      {
+                                        'hp': 0,
+                                        'stamina': 0,
+                                        'dmg': 0,
+                                        'def': 0,
+                                      },
+                                      (prev, item) => {
+                                        'hp': prev['hp']! + item.hpBonus,
+                                        'stamina':
+                                            prev['stamina']! +
+                                            item.staminaBonus,
+                                        'dmg': prev['dmg']! + item.dmgBonus,
+                                        'def': prev['def']! + item.defenseBonus,
+                                      },
+                                    );
+                                game.player.maxHealth = 100.0 + stats['hp']!;
+                                game.player.maxStamina =
+                                    100.0 + stats['stamina']!;
+                                game.player.dmgBonus = stats['dmg']!;
+                                game.player.defenseBonus = stats['def']!;
+                                game.player.health = game.player.health.clamp(
+                                  0,
+                                  game.player.maxHealth,
+                                );
+                                game.player.maxHealthNotifier.value =
+                                    game.player.maxHealth;
+                                game.player.healthNotifier.value =
+                                    game.player.health;
+                                game.player.stamina = game.player.stamina.clamp(
+                                  0,
+                                  game.player.maxStamina,
+                                );
+                                game.player.staminaNotifier.value =
+                                    game.player.stamina;
+                                game.player.refreshWeaponAnimation();
+                                game.player.weaponTypeVersion.value++;
+                              },
+                              onGiveAll: () => setState(() {
+                                game.inventory.items
+                                  ..clear()
+                                  ..addAll(game.itemCatalog);
+                              }),
                               onClose: () =>
                                   game.player.inventoryOpen.value = false,
+                              debugMode: game.settings.debugMode,
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -487,18 +606,125 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Widget _debugBorder(Widget child) => game.settings.debugMode
+      ? DecoratedBox(
+          decoration: const BoxDecoration(
+            border: Border.fromBorderSide(BorderSide(color: Colors.red)),
+          ),
+          child: child,
+        )
+      : child;
+
+  Widget _joystick(Size size, NgocRongGame game) {
+    final cfg = _layout.buttons[OverlayButtonId.joystick]!;
+    final diameter = 120 * cfg.scale;
+    return Positioned(
+      left: (cfg.anchor.dx * size.width - diameter / 2).clamp(
+        0.0,
+        size.width - diameter,
+      ),
+      top: (cfg.anchor.dy * size.height - diameter / 2).clamp(
+        0.0,
+        size.height - diameter,
+      ),
+      child: Opacity(
+        opacity: cfg.opacity,
+        child: _debugBorder(
+          _VirtualJoystick(
+            size: diameter,
+            onChanged: (dx, dy) {
+              if (game.player.isDead) return;
+              _move(dx.abs() < 0.15 ? 0 : dx);
+              game.player.setCrouching(dy > 0.3);
+              if (dy < -0.3) game.player.jump();
+            },
+            onReleased: () {
+              _move(0);
+              game.player.setCrouching(false);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _btn(Size size, OverlayButtonId id, Widget child) {
     final c = _layout.buttons[id]!;
-    final w = 72 * c.scale;
+    final scale = c.scale;
+    final w = 72 * scale;
     return Positioned(
       left: (c.anchor.dx * size.width - w / 2).clamp(0.0, size.width - w),
       top: (c.anchor.dy * size.height - w / 2).clamp(0.0, size.height - w),
       child: Opacity(
         opacity: c.opacity,
-        child: Transform.scale(scale: c.scale, child: child),
+        child: _debugBorder(Transform.scale(scale: scale, child: child)),
       ),
     );
   }
+}
+
+class _VirtualJoystick extends StatefulWidget {
+  const _VirtualJoystick({
+    required this.size,
+    required this.onChanged,
+    required this.onReleased,
+  });
+  final double size;
+  final void Function(double, double) onChanged;
+  final VoidCallback onReleased;
+
+  @override
+  State<_VirtualJoystick> createState() => _VirtualJoystickState();
+}
+
+class _VirtualJoystickState extends State<_VirtualJoystick> {
+  Offset knob = Offset.zero;
+
+  void update(Offset p) {
+    final center = Offset(widget.size / 2, widget.size / 2);
+    final delta = p - center;
+    final radius = widget.size * 0.32;
+    final limited = delta.distance > radius
+        ? Offset.fromDirection(delta.direction, radius)
+        : delta;
+    setState(() => knob = limited);
+    widget.onChanged(limited.dx / radius, limited.dy / radius);
+  }
+
+  void reset() {
+    setState(() => knob = Offset.zero);
+    widget.onReleased();
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onPanStart: (d) => update(d.localPosition),
+    onPanUpdate: (d) => update(d.localPosition),
+    onPanEnd: (_) => reset(),
+    onPanCancel: reset,
+    child: Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white30, width: 2),
+      ),
+      child: Transform.translate(
+        offset: knob,
+        child: Center(
+          child: Container(
+            width: widget.size * 0.38,
+            height: widget.size * 0.38,
+            decoration: const BoxDecoration(
+              color: Colors.white30,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _RoundControl extends StatefulWidget {
@@ -525,15 +751,11 @@ class _RoundControl extends StatefulWidget {
 }
 
 class _RoundControlState extends State<_RoundControl> {
-  Timer? _repeat;
-
   void _start() {
     widget.onPressed();
   }
 
   void _stop() {
-    _repeat?.cancel();
-    _repeat = null;
     widget.onReleased?.call();
   }
 
