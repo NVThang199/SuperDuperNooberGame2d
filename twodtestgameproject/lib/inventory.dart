@@ -395,8 +395,8 @@ class _InventoryWidgetState extends State<InventoryWidget> {
                     ),
                   ),
                   Positioned(
-                    right: w * 0.05,
-                    top: h * 0.03,
+                    right: w * 0.01,
+                    top: h * 0.02,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: widget.onClose,
