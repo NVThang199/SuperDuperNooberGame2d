@@ -118,6 +118,37 @@ class _GameScreenState extends State<GameScreen> {
         child: Stack(
           children: [
             GameWidget(game: game),
+            ValueListenableBuilder<bool>(
+              valueListenable: game.mapSelectionVisible,
+              builder: (context, visible, _) {
+                if (!visible) return const SizedBox.shrink();
+                return Center(
+                  child: Material(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('CHỌN MAP', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(onPressed: () => game.selectMap(1), child: const Text('MAP 1')),
+                              const SizedBox(width: 12),
+                              ElevatedButton(onPressed: () => game.selectMap(2), child: const Text('MAP 2')),
+                            ],
+                          ),
+                          TextButton(onPressed: () => game.mapSelector.showUI.value = false, child: const Text('ĐÓNG')),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
             if (_showPauseMenu)
               Center(
                 child: Container(

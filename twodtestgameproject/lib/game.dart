@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
+import 'dart:ui' as ui show lerpDouble, Image, Canvas, Offset, Rect, Paint, Color;
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
@@ -11,7 +11,7 @@ import 'package:flutter/gestures.dart'
     show PointerMoveEvent, PointerDownEvent, PointerUpEvent;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Image;
 
 import 'inventory.dart';
 import 'item_loader.dart';
@@ -1157,9 +1157,13 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       else if (event.logicalKey == settings.runKey) {
         _keysPressed.add(event.logicalKey);
         setRunning(true);
-      } else if (event.logicalKey == settings.chestKey)
-        game.openChest();
-      else if (event.logicalKey == settings.inventoryKey) {
+      } else if (event.logicalKey == settings.chestKey) {
+        if (game.canOpenChest.value) {
+          game.openChest();
+        } else if (game.currentMap == 0) {
+          game.mapSelector.interact();
+        }
+      } else if (event.logicalKey == settings.inventoryKey) {
         inventoryOpen.value = !inventoryOpen.value;
       } else if (inventoryOpen.value && event.logicalKey == settings.leftKey) {
         inventoryPage.value = (inventoryPage.value - 1).clamp(0, 99);
@@ -1248,7 +1252,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       }
     }
 
-    vx = lerpDouble(vx, _targetVx, (6 * dt).clamp(0.0, 1.0))!;
+    vx = ui.lerpDouble(vx, _targetVx, (6 * dt).clamp(0.0, 1.0))!;
     vy += gravity * dt;
     final wasOnGround = isOnGround;
     position.x += vx * dt;
@@ -1631,6 +1635,61 @@ class SlimeEnemy extends SpriteAnimationComponent
   }
 }
 
+class MapSelector extends SpriteAnimationComponent
+    with HasGameReference<NgocRongGame>, TapCallbacks {
+  ValueNotifier<bool> get showUI => game.mapSelectionVisible;
+  final ValueNotifier<bool> canInteract = ValueNotifier(false);
+  late final TextPaint _promptText;
+
+  /// Sheet is 96x144: 2 columns x 3 rows, so each frame is 48x48.
+  MapSelector({required Vector2 position, required ui.Image image, required double displayHeight})
+      : super(
+          position: position,
+          size: Vector2.all(displayHeight),
+          anchor: Anchor.center,
+          priority: 2,
+          playing: true,
+        ) {
+    _promptText = TextPaint(
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+    animation = SpriteAnimation.fromFrameData(
+      image,
+      SpriteAnimationData.sequenced(
+        amount: 6,
+        stepTime: 0.15,
+        textureSize: Vector2.all(48),
+        loop: true,
+      ),
+    );
+  }
+
+  void checkProximity(Vector2 playerPos) {
+    canInteract.value = (position - playerPos).length < size.y * 2;
+  }
+
+  void interact() {
+    if (canInteract.value) showUI.value = true;
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) => interact();
+
+  @override
+  bool containsLocalPoint(Vector2 point) => canInteract.value;
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    if (!canInteract.value) return;
+    _promptText.render(canvas, 'CHẠM ĐỂ MỞ MAP', Vector2(-58, -size.y / 2 - 20));
+  }
+}
+
 class NgocRongGame extends FlameGame
     with HasCollisionDetection, HasKeyboardHandlerComponents {
   static final Random _shakeRandom = Random();
@@ -1652,8 +1711,11 @@ class NgocRongGame extends FlameGame
   late SlimeEnemy slime;
   late BossEnemy boss;
   late DebugOverlay debugOverlay;
+  late MapSelector mapSelector;
+  late ui.Image scullImage;
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
+  final ValueNotifier<bool> mapSelectionVisible = ValueNotifier(false);
   final InventoryState inventory = InventoryState();
   List<InventoryItem> itemCatalog = [];
 
@@ -1734,6 +1796,19 @@ class NgocRongGame extends FlameGame
     camera.viewfinder.zoom = 1.0;
     add(chest);
     add(fire);
+    
+    try {
+      scullImage = await images.load('scull.png');
+    } catch (_) {
+      scullImage = await images.load('background/forest.png'); // fallback
+    }
+    
+    mapSelector = MapSelector(
+      position: Vector2(size.x * 0.6, size.y - groundHeight - size.y * 0.15),
+      image: scullImage,
+      displayHeight: size.y * 0.15,
+    );
+    add(mapSelector);
 
     slime = SlimeEnemy(position: player.position.clone(), player: player)
       ..size = Vector2.all(size.y * 0.27);
@@ -1768,45 +1843,78 @@ class NgocRongGame extends FlameGame
     }
   }
 
+  void selectMap(int mapId) {
+    if (mapId == currentMap) return;
+    mapSelector.showUI.value = false;
+    removeAll(children.whereType<DoubleJumpDust>());
+    removeAll(children.whereType<BossMinion>());
+    
+    if (mapId == 0) {
+      currentMap = 0;
+      background1.removeFromParent();
+      add(background);
+      slime.removeFromParent();
+      boss.removeFromParent();
+      add(chest);
+      add(mapSelector);
+      add(fire);
+      player.position.x = size.x * 0.2 + player.size.x / 2;
+    } else if (mapId == 1) {
+      currentMap = 1;
+      background.removeFromParent();
+      add(background1);
+      chest.removeFromParent();
+      fire.removeFromParent();
+      boss.removeFromParent();
+      slime.health = slime.maxHealth;
+      slime.opacity = 1;
+      slime._dead = false;
+      add(slime);
+      player.position.x = size.x * 0.1 + player.size.x / 2;
+    } else if (mapId == 2) {
+      currentMap = 2;
+      background.removeFromParent();
+      background1.removeFromParent();
+      add(background2);
+      chest.removeFromParent();
+      fire.removeFromParent();
+      slime.removeFromParent();
+      boss.health = boss.maxHealth;
+      boss.resetState();
+      add(boss);
+      player.position.x = size.x * 0.1 + player.size.x / 2;
+    }
+  }
+
   @override
   void update(double dt) {
     super.update(dt);
     debugElapsed += dt;
     final minPlayerX = player.size.x / 2;
     final maxPlayerX = size.x - player.size.x / 2;
-    if (currentMap == 0 && player.position.x >= maxPlayerX - 1) {
+    // Right transitions disabled. Maps accessible via map selection.
+    if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
       currentMap = 1;
       removeAll(children.whereType<DoubleJumpDust>());
-      background.removeFromParent();
-      add(background1);
-      chest.removeFromParent();
-      fire.removeFromParent();
-      add(slime);
-      canOpenChest.value = false;
-      player.position.x = size.x * 0.1 + player.size.x / 2;
-    } else if (currentMap == 1 && player.position.x >= maxPlayerX - 1) {
-      currentMap = 2;
-      removeAll(children.whereType<DoubleJumpDust>());
-      background1.removeFromParent();
-      add(background2);
-      slime.removeFromParent();
-      add(boss);
-      player.position.x = size.x * 0.1 + player.size.x / 2;
-    } else if (currentMap == 2 && player.position.x <= minPlayerX + 1) {
-      currentMap = 1;
-      removeAll(children.whereType<DoubleJumpDust>());
+      removeAll(children.whereType<BossMinion>());
       background2.removeFromParent();
       add(background1);
       boss.removeFromParent();
+      slime.health = slime.maxHealth;
+      slime.opacity = 1;
+      slime._dead = false;
       add(slime);
       player.position.x = size.x * 0.9 - player.size.x / 2;
     } else if (currentMap == 1 && player.position.x <= minPlayerX + 1) {
       currentMap = 0;
       removeAll(children.whereType<DoubleJumpDust>());
+      removeAll(children.whereType<BossMinion>());
       background1.removeFromParent();
       add(background);
       slime.removeFromParent();
+      boss.removeFromParent();
       add(chest);
+      add(mapSelector);
       add(fire);
       player.position.x = size.x * 0.9 - player.size.x / 2;
     }
@@ -1814,6 +1922,7 @@ class NgocRongGame extends FlameGame
     if (currentMap == 0) {
       final dist = (player.position - chest.position).length;
       canOpenChest.value = dist < size.y * 0.12;
+      mapSelector.checkProximity(player.position);
     } else {
       canOpenChest.value = false;
     }
