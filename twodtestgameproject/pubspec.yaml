@@ -14,6 +14,7 @@ dependencies:
   flame: ^1.38.2
   web_socket_channel: ^3.0.3
   shared_preferences: ^2.5.5
+  flutter_joystick: ^0.2.2
 
 dev_dependencies:
   flutter_test:
@@ -23,12 +24,18 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/characters/free_knight/
     - assets/images/characters/dude_monster/
     - assets/images/characters/owlet_monster/
     - assets/images/characters/pink_monster/
     - assets/images/enemies/slime3/
+    - assets/images/enemies/undead_boss/
     - assets/images/environment/
     - assets/images/action/
     - assets/images/ui/
     - assets/images/ui/inventory/
     - assets/images/background/
+    - assets/item/
+    - assets/item/64x64/
+    - assets/images/background/forest_map2.png
+    - assets/images/scull.png
