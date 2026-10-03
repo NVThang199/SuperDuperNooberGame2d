@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
@@ -365,8 +366,66 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
   Future<void> _loadAnimations() async {
     final kind = game.inventory.weaponType;
     final aspect = character.textureSize.x / character.textureSize.y;
-    if (kind == 'none' || character.id == 'free_knight') {
+    final weapon = game.inventory.equippedWeapon;
+    if (kind == 'none') {
       animations = _baseAnimations;
+      current = 'idle';
+      size = Vector2(game.size.y * 0.6 * aspect, game.size.y * 0.6);
+      return;
+    }
+    if (character.id == 'free_knight') {
+      final customAnimations = Map<String, SpriteAnimation>.from(_baseAnimations!);
+      if (kDebugMode) print('[DEBUG] weapon: $weapon');
+      if (kDebugMode) print('[DEBUG] attack1Path: ${weapon?.attack1Path}');
+      
+      Future<ui.Image> loadAssetImage(String path) async {
+        final data = await rootBundle.load('assets/$path');
+        final bytes = data.buffer.asUint8List();
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        return frame.image;
+      }
+      
+      if (weapon?.attack1Path.isNotEmpty == true) {
+        if (kDebugMode) print('[DEBUG] Loading attack1: ${weapon!.attack1Path}');
+        final ui.Image image = await loadAssetImage(weapon!.attack1Path);
+        customAnimations['attack1'] = SpriteAnimation.fromFrameData(
+          image,
+          SpriteAnimationData.sequenced(
+            amount: character.attack1Amount,
+            stepTime: character.attack1StepTime,
+            textureSize: Vector2(weapon.attack1TextureWidth.toDouble(), character.textureSize.y),
+            loop: false,
+          ),
+        );
+      }
+      if (weapon?.attack2Path.isNotEmpty == true) {
+        if (kDebugMode) print('[DEBUG] Loading attack2: ${weapon!.attack2Path}');
+        final ui.Image image = await loadAssetImage(weapon!.attack2Path);
+        customAnimations['attack2'] = SpriteAnimation.fromFrameData(
+          image,
+          SpriteAnimationData.sequenced(
+            amount: character.attack2Amount,
+            stepTime: character.attack2StepTime,
+            textureSize: Vector2(weapon.attack2TextureWidth.toDouble(), character.textureSize.y),
+            loop: false,
+          ),
+        );
+      }
+      if (weapon?.squatAttackPath.isNotEmpty == true) {
+        if (kDebugMode) print('[DEBUG] Loading crouchAttack: ${weapon!.squatAttackPath}');
+        final ui.Image image = await loadAssetImage(weapon!.squatAttackPath);
+        customAnimations['crouchAttack'] = SpriteAnimation.fromFrameData(
+          image,
+          SpriteAnimationData.sequenced(
+            amount: character.crouchAttackFrameCount,
+            stepTime: character.crouchAttackStepTime,
+            textureSize: Vector2(weapon.squatAttackTextureWidth.toDouble(), character.textureSize.y),
+            loop: false,
+          ),
+        );
+      }
+      animations = customAnimations;
       current = 'idle';
       size = Vector2(game.size.y * 0.6 * aspect, game.size.y * 0.6);
       return;
@@ -660,6 +719,15 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       return 'crouchAttack';
     if (!isOnGround && animations?.containsKey('jumpAttack') == true)
       return 'jumpAttack';
+    
+    // Nếu có vũ khí custom, ưu tiên dùng attack của vũ khí cho mọi trạng thái di chuyển
+    final weapon = game.inventory.equippedWeapon;
+    if (weapon != null && (weapon.attack1Path.isNotEmpty || weapon.attack2Path.isNotEmpty)) {
+      if (step == 2 && animations?.containsKey('attack2') == true)
+        return 'attack2';
+      return 'attack1';
+    }
+
     if (step == 2 && animations?.containsKey('attack2') == true)
       return 'attack2';
     if (_running && _lastInput.abs() > 0.1) {
@@ -1259,7 +1327,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       }
     }
 
-    vx = lerpDouble(vx, _targetVx, (6 * dt).clamp(0.0, 1.0))!;
+    vx = ui.lerpDouble(vx, _targetVx, (6 * dt).clamp(0.0, 1.0))!;
     vy += gravity * dt;
     final wasOnGround = isOnGround;
     position.x += vx * dt;
