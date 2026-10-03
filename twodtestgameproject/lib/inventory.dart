@@ -39,6 +39,9 @@ class InventoryItem {
   final String attack1Path;
   final String attack2Path;
   final String squatAttackPath;
+  final int attack1TextureWidth;
+  final int attack2TextureWidth;
+  final int squatAttackTextureWidth;
 
   InventoryItem({
     required this.id,
@@ -55,6 +58,9 @@ class InventoryItem {
     this.attack1Path = '',
     this.attack2Path = '',
     this.squatAttackPath = '',
+    this.attack1TextureWidth = 120,
+    this.attack2TextureWidth = 120,
+    this.squatAttackTextureWidth = 120,
   });
 }
 
