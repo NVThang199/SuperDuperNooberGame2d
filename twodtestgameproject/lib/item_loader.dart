@@ -8,9 +8,9 @@ class ItemLoader {
     final lines = csv.split('\n').skip(1);
     return lines.where((line) => line.isNotEmpty).map((line) {
       final parts = line.split(',');
-      if (parts.length != 11) {
+      if (parts.length != 14) {
         throw FormatException(
-          'Expected 11 columns, got ${parts.length}: $line',
+          'Expected 14 columns, got ${parts.length}: $line',
         );
       }
       final type = parts[4];
@@ -36,6 +36,9 @@ class ItemLoader {
         dmgBonus: int.parse(parts[8]),
         defenseBonus: int.parse(parts[9]),
         description: parts[10].trim(),
+        attack1Path: parts[11].trim(),
+        attack2Path: parts[12].trim(),
+        squatAttackPath: parts[13].trim(),
       );
     }).toList();
   }

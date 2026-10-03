@@ -36,6 +36,9 @@ class InventoryItem {
   final int defenseBonus;
   final String type;
   final String description;
+  final String attack1Path;
+  final String attack2Path;
+  final String squatAttackPath;
 
   InventoryItem({
     required this.id,
@@ -49,6 +52,9 @@ class InventoryItem {
     this.defenseBonus = 0,
     this.type = '',
     this.description = '',
+    this.attack1Path = '',
+    this.attack2Path = '',
+    this.squatAttackPath = '',
   });
 }
 
@@ -214,6 +220,15 @@ class InventoryState {
     return false;
   }
 
+  InventoryItem? get equippedWeapon {
+    final weaponId = equippedSlots['weapon1'] ?? equippedSlots['weapon2'];
+    if (weaponId == null) return null;
+    for (final item in items) {
+      if (item.id == weaponId) return item;
+    }
+    return null;
+  }
+
   String get weaponType {
     final weapon1Id = equippedSlots['weapon1'];
     final weapon2Id = equippedSlots['weapon2'];
@@ -270,9 +285,9 @@ class _InventoryWidgetState extends State<InventoryWidget> {
   static const _eqCols = 3;
   static const _eqRows = 4;
   static const _eqLeft = 10.0;
-  static const _eqTop = 16.0;
+  static const _eqTop = 17.0;
   static const _gridLeft = 74.0;
-  static const _gridTop = 16.0;
+  static const _gridTop = 17.0;
   static const _gridWidth = _cols * _slotSize + (_cols - 1) * _slotGap;
   static const _gridHeight = _rows * _slotSize + (_rows - 1) * _slotGap;
   static const _eqWidth = _eqCols * _slotSize + (_eqCols - 1) * _slotGap;
@@ -395,8 +410,8 @@ class _InventoryWidgetState extends State<InventoryWidget> {
                     ),
                   ),
                   Positioned(
-                    right: w * 0.05,
-                    top: h * 0.03,
+                    right: w * 0.01,
+                    top: h * 0.02,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: widget.onClose,
