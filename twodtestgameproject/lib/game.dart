@@ -1740,8 +1740,9 @@ class MapSelector extends SpriteAnimationComponent
       image,
       SpriteAnimationData.sequenced(
         amount: 6,
+        amountPerRow: 2,
         stepTime: 0.15,
-        textureSize: Vector2.all(48),
+        textureSize: Vector2(48, 48),
         loop: true,
       ),
     );
@@ -1876,11 +1877,7 @@ class NgocRongGame extends FlameGame
     add(chest);
     add(fire);
     
-    try {
-      scullImage = await images.load('scull.png');
-    } catch (_) {
-      scullImage = await images.load('background/forest.png'); // fallback
-    }
+    scullImage = await images.load('environment/scull.png');
     
     mapSelector = MapSelector(
       position: Vector2(size.x * 0.6, size.y - groundHeight - size.y * 0.15),
