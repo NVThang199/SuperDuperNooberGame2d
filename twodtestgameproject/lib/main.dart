@@ -136,12 +136,16 @@ class _GameScreenState extends State<GameScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              ElevatedButton(onPressed: () => game.selectMap(0), child: const Text('MAP 0')),
+                              const SizedBox(width: 12),
                               ElevatedButton(onPressed: () => game.selectMap(1), child: const Text('MAP 1')),
                               const SizedBox(width: 12),
                               ElevatedButton(onPressed: () => game.selectMap(2), child: const Text('MAP 2')),
+                              const SizedBox(width: 12),
+                              ElevatedButton(onPressed: () => game.selectMap(3), child: const Text('MAP 3')),
                             ],
                           ),
-                          TextButton(onPressed: () => game.mapSelector.showUI.value = false, child: const Text('ĐÓNG')),
+                          TextButton(onPressed: () => game.mapSelectionVisible.value = false, child: const Text('ĐÓNG')),
                         ],
                       ),
                     ),
