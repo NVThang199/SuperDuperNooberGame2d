@@ -329,7 +329,6 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       loop: loop,
     ),
   );
-
   Future<SpriteAnimation> _loadWeaponSheet(
     String file,
     int frames, {
@@ -337,8 +336,20 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
     double stepTime = 0.1,
   }) async {
     final kind = game.inventory.weaponType;
-    final folder = kind == 'sword' ? 'sword' : 'bow';
-    final actualPath = 'characters/${character.id}_monster_$folder/$file';
+    final weapon = game.inventory.equippedWeapon;
+    
+    String actualPath;
+    if (file == 'Attack1.png' && weapon?.attack1Path.isNotEmpty == true) {
+      actualPath = weapon!.attack1Path;
+    } else if (file == 'Attack2.png' && weapon?.attack2Path.isNotEmpty == true) {
+      actualPath = weapon!.attack2Path;
+    } else if (file == 'SquatAttack.png' && weapon?.squatAttackPath.isNotEmpty == true) {
+      actualPath = weapon!.squatAttackPath;
+    } else {
+      final folder = kind == 'sword' ? 'sword' : 'bow';
+      actualPath = 'characters/${character.id}_monster_$folder/$file';
+    }
+    
     final image = await game.images.load(actualPath);
     return SpriteAnimation.fromFrameData(
       image,

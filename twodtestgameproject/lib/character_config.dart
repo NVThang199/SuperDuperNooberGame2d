@@ -303,10 +303,6 @@ CharacterConfig _create(String id, String displayName) => createConfig(
   doubleJumpDustStepTime: 0.08,
 );
 
-final dudeConfig = _create('dude', 'Dude');
-final owletConfig = _create('owlet', 'Owlet');
-final pinkConfig = _create('pink', 'Pink');
-
 final freeKnightConfig = CharacterConfig(
   id: 'free_knight',
   displayName: 'Free Knight',

@@ -36,6 +36,9 @@ class InventoryItem {
   final int defenseBonus;
   final String type;
   final String description;
+  final String attack1Path;
+  final String attack2Path;
+  final String squatAttackPath;
 
   InventoryItem({
     required this.id,
@@ -49,6 +52,9 @@ class InventoryItem {
     this.defenseBonus = 0,
     this.type = '',
     this.description = '',
+    this.attack1Path = '',
+    this.attack2Path = '',
+    this.squatAttackPath = '',
   });
 }
 
@@ -212,6 +218,15 @@ class InventoryState {
       }
     }
     return false;
+  }
+
+  InventoryItem? get equippedWeapon {
+    final weaponId = equippedSlots['weapon1'] ?? equippedSlots['weapon2'];
+    if (weaponId == null) return null;
+    for (final item in items) {
+      if (item.id == weaponId) return item;
+    }
+    return null;
   }
 
   String get weaponType {
