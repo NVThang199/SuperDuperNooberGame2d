@@ -21,6 +21,8 @@ import 'character_config.dart';
 import 'shield_badge.dart';
 import 'stamina_config.dart';
 import 'boss.dart';
+import 'camera_manager.dart';
+import 'parallax_manager.dart';
 
 class DamageConfig {
   static const double swordBaseDamage = 20.0;
@@ -1128,7 +1130,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       animation: anim,
       size: Vector2.all(size.y * 1.15),
     );
-    game.add(dust);
+    game.world.add(dust);
   }
 
   void _spawnRunPushDust() {
@@ -1144,7 +1146,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       size: Vector2.all(size.y * 1.15),
     );
     dust.scale.x = direction < 0 ? -1 : 1;
-    game.add(dust);
+    game.world.add(dust);
   }
 
   void jump() {
@@ -1389,7 +1391,7 @@ class LocalPlayer extends SpriteAnimationGroupComponent<String>
       }
     } else {
       final minX = size.x / 2;
-      final maxX = game.size.x - size.x / 2;
+      final maxX = game.mapWidth - size.x / 2;
       if (position.x < minX) position.x = minX;
       if (position.x > maxX) position.x = maxX;
     }
@@ -1788,11 +1790,17 @@ class NgocRongGame extends FlameGame
   final ValueNotifier<bool> canOpenChest = ValueNotifier(false);
   final ValueNotifier<bool> chestOpenState = ValueNotifier(false);
   int currentMap = 0;
+
+  double get mapWidth => currentMap == 3 ? size.x * 3.5 : size.x;
+
   late SlimeEnemy slime;
   late BossEnemy boss;
   late DebugOverlay debugOverlay;
   late MapSelector mapSelector;
   late ui.Image scullImage;
+  
+  late CameraManager cameraManager;
+  late ParallaxManager parallaxManager;
 
   final ValueNotifier<bool> isPaused = ValueNotifier(false);
   final ValueNotifier<bool> mapSelectionVisible = ValueNotifier(false);
@@ -1895,6 +1903,14 @@ class NgocRongGame extends FlameGame
       player: player,
       position: Vector2(size.x * 0.55, player.position.y),
     );
+    
+    // Initialize camera & parallax managers
+    cameraManager = CameraManager(this, size.x * 3.5, size.y);
+    parallaxManager = ParallaxManager(size.x, size.y, size.x * 3.5);
+    await parallaxManager.initialize(images);
+    // Map 0 default: setup camera. Viewfinder anchor = center (default).
+    camera.viewfinder.position = Vector2(size.x / 2, size.y / 2);
+    if (kDebugMode) print('[GAME] Camera anchor=${camera.viewfinder.anchor} pos=${camera.viewfinder.position}');
   }
 
   void toggleDebug() {
@@ -1929,6 +1945,7 @@ class NgocRongGame extends FlameGame
     background.removeFromParent();
     background1.removeFromParent();
     background2.removeFromParent();
+    parallaxManager.removeFromGame(this);
     
     // Remove all objects
     chest.removeFromParent();
@@ -1942,7 +1959,11 @@ class NgocRongGame extends FlameGame
       add(chest);
       add(fire);
       add(mapSelector);
+      player.removeFromParent();
+      add(player);
       player.position.x = size.x * 0.2 + player.size.x / 2;
+      // Disable dead-zone camera for map 0 (small static map)
+      camera.follow(player);
     } else if (mapId == 1) {
       currentMap = 1;
       add(background1);
@@ -1951,7 +1972,11 @@ class NgocRongGame extends FlameGame
       slime._dead = false;
       add(slime);
       add(mapSelector);
+      player.removeFromParent();
+      add(player);
       player.position.x = size.x * 0.1 + player.size.x / 2;
+      // Disable dead-zone camera for map 1 (small static map)
+      camera.follow(player);
     } else if (mapId == 2) {
       currentMap = 2;
       add(background2);
@@ -1959,7 +1984,25 @@ class NgocRongGame extends FlameGame
       boss.resetState();
       add(boss);
       add(mapSelector);
+      player.removeFromParent();
+      add(player);
       player.position.x = size.x * 0.1 + player.size.x / 2;
+      // Disable dead-zone camera for map 2 (small static map)
+      camera.follow(player);
+    } else if (mapId == 3) {
+      currentMap = 3;
+      camera.stop();
+      parallaxManager.resetLayers();
+      parallaxManager.addToGame(this);
+      world.add(mapSelector);
+      player.removeFromParent();
+      player.position.x = size.x * 0.5; // Start ở giữa screen (dead-zone center)
+      player.opacity = 1;
+      world.add(player);
+      // Enable dead-zone + parallax camera
+      cameraManager = CameraManager(this, mapWidth, size.y);
+      cameraManager.cameraWorldPos.setValues(player.position.x, size.y / 2); // Cam start ở player
+      camera.viewfinder.position = cameraManager.cameraWorldPos;
     }
   }
 
@@ -1981,18 +2024,41 @@ class NgocRongGame extends FlameGame
     } else if (currentMap == 2) {
       mapSelector.checkProximity(player.position);
       canOpenChest.value = false;
+    } else if (currentMap == 3) {
+      // Map 3: dead-zone camera + parallax
+      // Get camera delta BEFORE updating
+      final prevCamX = cameraManager.cameraWorldPos.x;
+      
+      // Update camera (applies dead-zone logic)
+      cameraManager.update(player.position, dt);
+      
+      // Get camera movement and apply to parallax
+      final cameraDelta = cameraManager.cameraWorldPos.x - prevCamX;
+      parallaxManager.updateParallax(cameraDelta);
+      
+      // Apply camera to Flame engine
+      cameraManager.applyToFlameCamera(camera);
+      
+      if (kDebugMode && cameraDelta.abs() > 0.1) {
+        print('[UPDATE] playerX=${player.position.x.toStringAsFixed(1)} camX=${cameraManager.cameraWorldPos.x.toStringAsFixed(1)} delta=$cameraDelta layer0X=${parallaxManager.layers[0].tiles[1].position.x.toStringAsFixed(1)}');
+      }
+      
+      mapSelector.checkProximity(player.position);
+      canOpenChest.value = false;
     }
 
     if (_shakeTimer > 0) {
       _shakeTimer -= dt;
-      camera.viewfinder.position -= _shakeOffset;
+      final basePos = currentMap == 3 ? cameraManager.cameraWorldPos : camera.viewfinder.position;
+      camera.viewfinder.position = basePos - _shakeOffset;
       _shakeOffset.setValues(
         (_shakeRandom.nextDouble() - 0.5) * 4,
         (_shakeRandom.nextDouble() - 0.5) * 4,
       );
-      camera.viewfinder.position += _shakeOffset;
+      camera.viewfinder.position = basePos + _shakeOffset;
     } else if (_shakeOffset.length > 0) {
-      camera.viewfinder.position -= _shakeOffset;
+      final basePos = currentMap == 3 ? cameraManager.cameraWorldPos : camera.viewfinder.position;
+      camera.viewfinder.position = basePos - _shakeOffset;
       _shakeOffset.setZero();
     }
   }
@@ -2018,8 +2084,16 @@ class NgocRongGame extends FlameGame
       player.size = Vector2(playerSize * aspect * scale, playerSize * scale);
       slime.size = Vector2.all(size.y * 0.27);
       player.position.y = size.y - groundHeight - playerSize / 2;
-      final maxX = size.x - playerSize / 2;
+      final maxX = mapWidth - player.size.x / 2;
       if (player.position.x > maxX) player.position.x = maxX;
+      if (currentMap == 3) {
+        // Re-init parallax với tileWidth mới
+        parallaxManager.gameWidth = size.x;
+        parallaxManager.gameHeight = size.y;
+        parallaxManager.mapWidth = mapWidth;
+        parallaxManager.resetLayers();
+        camera.viewfinder.position = cameraManager.cameraWorldPos;
+      }
     }
   }
 }
