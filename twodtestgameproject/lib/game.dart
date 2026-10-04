@@ -48,43 +48,53 @@ class DebugOverlay extends PositionComponent with HasGameReference<NgocRongGame>
     if (!game.settings.debugMode) return;
     final p = game.player;
     
+    // Calculate camera offset for Map 3 (world to screen conversion)
+    final double cameraOffsetX = (game.currentMap == 3 && game.cameraManager != null)
+        ? game.cameraManager.cameraWorldPos.x - game.size.x / 2
+        : 0.0;
+    
     final groundY = game.size.y - game.size.y * 0.1;
     final lines = <String>[
-    '[DEBUG] map=${game.currentMap} elapsed=${game.debugElapsed.toStringAsFixed(1)}s ground=${groundY.toStringAsFixed(1)}',
-    '[IFRAME: ${p._iframeActive ? "ACTIVE" : "INACTIVE"}]',
-    'Map bounds: X[0, ${game.size.x.toStringAsFixed(1)}] Y[0, ${game.size.y.toStringAsFixed(1)}]',
-    '[PLAYER] pos=${p.position.x.toStringAsFixed(1)},${p.position.y.toStringAsFixed(1)} vel=(${p.vx.toStringAsFixed(1)},${p.vy.toStringAsFixed(1)})',
-    'HP=${p.health.toStringAsFixed(1)}/${p.maxHealth} stamina=${p.stamina.toStringAsFixed(1)}/${p.maxStamina}',
-    'damage=${(p.baseDamage + p.dmgBonus).toStringAsFixed(1)} defense=${p.defenseBonus} shield=${p.shield.toStringAsFixed(1)}',
-    'anim=${p.current} weight=${p.inventory.rollWeight}',
-    'Inv Slots: ${p.inventory.items.length}/${InventoryState.slotsPerPage} Equipped: ${p.inventory.equippedCount}/${InventoryState.maxEquippedItems}',
-    'physics jump=${p.jumpImpulse.toStringAsFixed(1)} gravity=${p.gravity.toStringAsFixed(1)} speed=${p.movementSpeed.toStringAsFixed(1)}',
-    'hitbox w=${(p.size.x * 0.26).toStringAsFixed(1)} h=${(p.size.y * 0.48).toStringAsFixed(1)}',
+      '[DEBUG] map=${game.currentMap} elapsed=${game.debugElapsed.toStringAsFixed(1)}s ground=${groundY.toStringAsFixed(1)}',
+      '[IFRAME: ${p._iframeActive ? "ACTIVE" : "INACTIVE"}]',
+      'Map bounds: X[0, ${(game.currentMap == 3 ? game.mapWidth : game.size.x).toStringAsFixed(1)}] Y[0, ${game.size.y.toStringAsFixed(1)}]',
+      '[PLAYER] pos=${p.position.x.toStringAsFixed(1)},${p.position.y.toStringAsFixed(1)} vel=(${p.vx.toStringAsFixed(1)},${p.vy.toStringAsFixed(1)})',
+      'HP=${p.health.toStringAsFixed(1)}/${p.maxHealth} stamina=${p.stamina.toStringAsFixed(1)}/${p.maxStamina}',
+      'damage=${(p.baseDamage + p.dmgBonus).toStringAsFixed(1)} defense=${p.defenseBonus} shield=${p.shield.toStringAsFixed(1)}',
+      'anim=${p.current} weight=${p.inventory.rollWeight}',
+      'Inv Slots: ${p.inventory.items.length}/${InventoryState.slotsPerPage} Equipped: ${p.inventory.equippedCount}/${InventoryState.maxEquippedItems}',
+      'physics jump=${p.jumpImpulse.toStringAsFixed(1)} gravity=${p.gravity.toStringAsFixed(1)} speed=${p.movementSpeed.toStringAsFixed(1)}',
+      'hitbox w=${(p.size.x * 0.26).toStringAsFixed(1)} h=${(p.size.y * 0.48).toStringAsFixed(1)}',
     ];
     
     final groundPaint = Paint()
     ..color = Colors.yellow
     ..style = PaintingStyle.stroke
     ..strokeWidth = 2;
-    canvas.drawLine(Offset(0, groundY), Offset(game.size.x, groundY), groundPaint);
+// Adjust ground line for camera offset on Map 3
+    final double groundEndX = (game.currentMap == 3 ? game.mapWidth : game.size.x) - cameraOffsetX;
+    canvas.drawLine(Offset(-cameraOffsetX, groundY), Offset(groundEndX, groundY), groundPaint);
     
     final redPaint = Paint()
     ..color = Colors.red
     ..style = PaintingStyle.stroke
     ..strokeWidth = 2;
-    final minX = p.size.x / 2;
-    final maxX = game.size.x - p.size.x / 2;
+    // Adjust red boundary lines for Map 3 - they should show world boundaries
+    final double mapWidth = game.currentMap == 3 ? game.mapWidth : game.size.x;
+    final double minX = -cameraOffsetX; // Left boundary in screen coords
+    final double maxX = mapWidth - cameraOffsetX; // Right boundary in screen coords
     canvas.drawLine(Offset(minX, 0), Offset(minX, game.size.y), redPaint);
     canvas.drawLine(Offset(maxX, 0), Offset(maxX, game.size.y), redPaint);
     
-    // Map boundary visuals
-    canvas.drawRect(Rect.fromLTWH(0, 0, game.size.x, game.size.y), _box);
+    // Map boundary visuals - show full world bounds for Map 3
+    final double mapW = game.currentMap == 3 ? game.mapWidth : game.size.x;
+    canvas.drawRect(Rect.fromLTWH(-cameraOffsetX, 0, mapW, game.size.y), _box);
     
-    // Player collision box (centered horizontally, bottom-aligned to ground)
+    // Player collision box (centered horizontally, bottom-aligned to ground) - apply camera offset
     final playerBoxW = p.size.x * 0.26;
     final playerBoxH = p.size.y * 0.48;
     final playerBoxOffset = Offset(
-      p.position.x - playerBoxW / 2,
+      p.position.x - cameraOffsetX - playerBoxW / 2,
       p.position.y + (p.size.y / 2) - playerBoxH,
     );
     canvas.drawRect(Rect.fromLTWH(playerBoxOffset.dx, playerBoxOffset.dy, playerBoxW, playerBoxH), _box);
@@ -94,41 +104,54 @@ class DebugOverlay extends PositionComponent with HasGameReference<NgocRongGame>
       ..color = Colors.cyan.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    canvas.drawCircle(p.position.toOffset(), playerAttackDist, playerRangePaint);
+    canvas.drawCircle(
+        Offset(p.position.x - cameraOffsetX, p.position.y), 
+        playerAttackDist, 
+        playerRangePaint);
     
     if (game.currentMap == 1) {
-    final e = game.slime;
-    lines.addAll(['[SLIME] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'damage=${DamageConfig.slimeBaseDamage} cooldown=${e.attackCooldown.toStringAsFixed(1)} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
-    // Slime collision box
-    final slimeBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
-    final slimeBoxOffset = Offset(e.position.x - slimeBoxSize.x / 2, e.position.y - slimeBoxSize.y / 2);
-      canvas.drawRect(Rect.fromLTWH(slimeBoxOffset.dx, slimeBoxOffset.dy, slimeBoxSize.x, slimeBoxSize.y), _box);
-    final slimeAttackDist = (e.size.x + p.size.x) * 0.35 * 2;
-    canvas.drawCircle(e.position.toOffset(), slimeAttackDist, playerRangePaint);
+      final e = game.slime;
+      lines.addAll(['[SLIME] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'damage=${DamageConfig.slimeBaseDamage} cooldown=${e.attackCooldown.toStringAsFixed(1)} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
+      // Slime collision box - no camera offset needed for maps 0-2
+      final slimeBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
+      final slimeBoxOffset = Offset(e.position.x - slimeBoxSize.x / 2, e.position.y - slimeBoxSize.y / 2);
+        canvas.drawRect(Rect.fromLTWH(slimeBoxOffset.dx, slimeBoxOffset.dy, slimeBoxSize.x, slimeBoxSize.y), _box);
+      final slimeAttackDist = (e.size.x + p.size.x) * 0.35 * 2;
+      canvas.drawCircle(e.position.toOffset(), slimeAttackDist, playerRangePaint);
     } else if (game.currentMap == 2) {
-    final e = game.boss;
-    lines.addAll(['[BOSS] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'attack=${DamageConfig.bossAttackDamage} skill=${DamageConfig.bossSkillDamage} state=${e.currentState} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
-    // Boss collision box
-    final bossBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
-    final bossBoxOffset = Offset(e.position.x - bossBoxSize.x / 2, e.position.y - bossBoxSize.y / 2);
-      canvas.drawRect(Rect.fromLTWH(bossBoxOffset.dx, bossBoxOffset.dy, bossBoxSize.x, bossBoxSize.y), _box);
-      canvas.drawCircle(e.position.toOffset(), BossEnemy.activationRange * 1.3, playerRangePaint);
-      canvas.drawCircle(e.position.toOffset(), 120, playerRangePaint);
+      final e = game.boss;
+      lines.addAll(['[BOSS] pos=${e.position.x.toStringAsFixed(1)},${e.position.y.toStringAsFixed(1)} HP=${e.health.toStringAsFixed(1)}/${e.maxHealth}', 'attack=${DamageConfig.bossAttackDamage} skill=${DamageConfig.bossSkillDamage} state=${e.currentState} hitbox=${(e.size.x * 0.5).toStringAsFixed(1)}x${(e.size.y * 0.8).toStringAsFixed(1)}']);
+      // Boss collision box - no camera offset needed for maps 0-2
+      final bossBoxSize = Vector2(e.size.x * 0.5, e.size.y * 0.8);
+      final bossBoxOffset = Offset(e.position.x - bossBoxSize.x / 2, e.position.y - bossBoxSize.y / 2);
+        canvas.drawRect(Rect.fromLTWH(bossBoxOffset.dx, bossBoxOffset.dy, bossBoxSize.x, bossBoxSize.y), _box);
+        canvas.drawCircle(e.position.toOffset(), BossEnemy.activationRange * 1.3, playerRangePaint);
+        canvas.drawCircle(e.position.toOffset(), 120, playerRangePaint);
     
-      // Minions collision boxes
-      for (final minion in game.children.whereType<BossMinion>().toList()) {
-        final minionBoxSize = Vector2(BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6, BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6);
-      final minionBoxOffset = Offset(minion.position.x - minionBoxSize.x / 2, minion.position.y - minionBoxSize.y / 2);
-        canvas.drawRect(Rect.fromLTWH(minionBoxOffset.dx, minionBoxOffset.dy, minionBoxSize.x, minionBoxSize.y), _box);
-      }
+        // Minions collision boxes - no camera offset needed for maps 0-2
+        for (final minion in game.children.whereType<BossMinion>().toList()) {
+          final minionBoxSize = Vector2(BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6, BossMinion.frameSize * BossMinion.sizeMultiplier * 0.6);
+        final minionBoxOffset = Offset(minion.position.x - minionBoxSize.x / 2, minion.position.y - minionBoxSize.y / 2);
+          canvas.drawRect(Rect.fromLTWH(minionBoxOffset.dx, minionBoxOffset.dy, minionBoxSize.x, minionBoxSize.y), _box);
+        }
     }
     
     if (p._attacking) {
-      canvas.drawRect(p._meleeHitRect(), _box);
+      // Apply camera offset to weapon hit rect for Map 3
+      final weaponRect = p._meleeHitRect();
+      final weaponRectOffset = Offset(weaponRect.left - cameraOffsetX, weaponRect.top);
+      canvas.drawRect(Rect.fromLTWH(weaponRectOffset.dx, weaponRectOffset.dy, weaponRect.width, weaponRect.height), _box);
+      lines.add('[WEAPON] anim=${p.current} texture=${p.game.inventory.equippedWeapon?.attack1Path ?? "none"}');
     }
     
     for (var i = 0; i < lines.length; i++) {
-      _text.render(canvas, lines[i], Vector2(10, game.size.y * 0.55 + i * 17));
+      _text.render(canvas, lines[i], Vector2(10, game.size.y * 0.2 + i * 17));
+    }
+    
+    // Debug indicator: draw green circle at viewport center to verify render is working
+    if (game.settings.debugMode) {
+      canvas.drawCircle(Offset(game.size.x / 2, game.size.y / 2), 10, 
+        Paint()..color = Colors.green);
     }
   }
 }
@@ -2039,9 +2062,11 @@ class NgocRongGame extends FlameGame
       // Apply camera to Flame engine
       cameraManager.applyToFlameCamera(camera);
       
-      if (kDebugMode && cameraDelta.abs() > 0.1) {
-        print('[UPDATE] playerX=${player.position.x.toStringAsFixed(1)} camX=${cameraManager.cameraWorldPos.x.toStringAsFixed(1)} delta=$cameraDelta layer0X=${parallaxManager.layers[0].tiles[1].position.x.toStringAsFixed(1)}');
-      }
+      // Player boundary clamp for Map 3
+      final minPlayerX = player.size.x / 2;
+      final maxPlayerX = mapWidth - player.size.x / 2;
+      if (player.position.x < minPlayerX) player.position.x = minPlayerX;
+      if (player.position.x > maxPlayerX) player.position.x = maxPlayerX;
       
       mapSelector.checkProximity(player.position);
       canOpenChest.value = false;
@@ -2050,7 +2075,6 @@ class NgocRongGame extends FlameGame
     if (_shakeTimer > 0) {
       _shakeTimer -= dt;
       final basePos = currentMap == 3 ? cameraManager.cameraWorldPos : camera.viewfinder.position;
-      camera.viewfinder.position = basePos - _shakeOffset;
       _shakeOffset.setValues(
         (_shakeRandom.nextDouble() - 0.5) * 4,
         (_shakeRandom.nextDouble() - 0.5) * 4,
@@ -2058,7 +2082,7 @@ class NgocRongGame extends FlameGame
       camera.viewfinder.position = basePos + _shakeOffset;
     } else if (_shakeOffset.length > 0) {
       final basePos = currentMap == 3 ? cameraManager.cameraWorldPos : camera.viewfinder.position;
-      camera.viewfinder.position = basePos - _shakeOffset;
+      camera.viewfinder.position = basePos;
       _shakeOffset.setZero();
     }
   }

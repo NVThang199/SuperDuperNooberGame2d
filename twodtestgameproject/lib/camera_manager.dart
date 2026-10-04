@@ -1,6 +1,5 @@
 import 'package:flame/camera.dart';
 import 'package:flame/game.dart';
-import 'package:flutter/foundation.dart';
 // ignore: depend_on_referenced_packages
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -51,10 +50,6 @@ class CameraManager {
       cameraWorldPos.x = _clampX(targetX);
     }
     // Nếu ở giữa dead-zone: camera đứng yên (không update cameraWorldPos.x)
-    
-    if (kDebugMode) {
-      print('[CAMERA] playerScreenX=$playerScreenX deadZone=[$deadZoneLeft, $deadZoneRight] cameraX=${cameraWorldPos.x.toStringAsFixed(1)}');
-    }
   }
 
   /// Clamp camera X sao cho không vượt ra ngoài map

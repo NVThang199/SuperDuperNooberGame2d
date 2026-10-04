@@ -67,6 +67,18 @@ flutter build windows    # production desktop
 - Map 2: Boss arena (undead boss)
 - Backgrounds: `assets/images/background/forest*.png`
 
+## Mandatory Debug Workflow
+
+Every new feature, behavior change, bug fix, animation, combat mechanic, UI interaction, physics change, or map/world change MUST include debug visualization without requiring the user to request it.
+
+- Gate all debug visuals and debug text behind `game.settings.debugMode`.
+- Collision/physics: draw red collision boxes, boundaries, hitboxes, or zones.
+- UI/inventory/interactive controls: draw red borders around clickable areas.
+- Character actions/animations: show current state, animation, timers, and relevant metrics in the red debug overlay.
+- Map/world/spawning: draw red transition zones, spawn areas, patrol ranges, and boundaries.
+- Use `DebugOverlay.render()` or the component's `render()` method; use `Colors.red` or `Color(0xFFFF0000)`.
+- Run `flutter analyze` after changes.
+
 ## Controls (default)
 
 **Keyboard:**
